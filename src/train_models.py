@@ -362,6 +362,8 @@ NIGERIAN_CSV_CANDIDATES = [
     r"c:\Users\USER\Downloads\nigerian_lecturer_evaluations_10000.csv",
 ]
 
+SLANG_DATASET_PATH = os.path.join("data", "nigerian_slang_dataset.csv")
+
 ASPECT_NAME_MAP = {
     "teaching clarity": "Teaching Clarity",
     "course organisation": "Course Organisation",
@@ -437,6 +439,24 @@ def load_nigerian_dataset(csv_path):
             "source": "nigerian",
         })
     return pd.DataFrame(records)
+
+
+def load_slang_dataset(csv_path):
+    """Loads the Nigerian slang and sarcasm dataset."""
+    if not os.path.exists(csv_path):
+        print(f"[WARNING] Slang dataset not found at {csv_path}, skipping...")
+        return pd.DataFrame()
+
+    df = pd.read_csv(csv_path)
+    # Ensure required columns exist
+    required_cols = ["id", "lecturer_name", "course", "course_code", "rating", "comment", "document_sentiment", "aspect_labels"]
+    for col in required_cols:
+        if col not in df.columns:
+            print(f"[ERROR] Slang dataset missing required column: {col}")
+            return pd.DataFrame()
+
+    print(f"Loaded {len(df)} slang/sarcasm records from {csv_path}")
+    return df
 
 
 def stratified_train_val_test(X, y, test_size=0.2, val_size=0.2, random_state=42):
@@ -576,7 +596,15 @@ def main():
     nigerian_df = load_nigerian_dataset(local_copy)
     print(f"Loaded {len(nigerian_df)} Nigerian evaluation records from {local_copy}.", flush=True)
 
-    df = pd.concat([synthetic_df, nigerian_df], ignore_index=True)
+    # Load slang/sarcasm dataset if it exists
+    slang_df = load_slang_dataset(SLANG_DATASET_PATH)
+
+    # Combine all datasets
+    datasets_to_combine = [synthetic_df, nigerian_df]
+    if not slang_df.empty:
+        datasets_to_combine.append(slang_df)
+
+    df = pd.concat(datasets_to_combine, ignore_index=True)
     print("Combined document sentiment distribution:\n", df["document_sentiment"].value_counts(), flush=True)
     print("Source counts:\n", df["source"].value_counts(), flush=True)
 
@@ -708,12 +736,13 @@ def main():
         "dataset": {
             "nigerian_records": int(len(nigerian_df)),
             "synthetic_records": int(len(synthetic_df)),
+            "slang_records": int(len(slang_df)) if not slang_df.empty else 0,
             "total_records": int(len(df)),
             "train_size": int(len(X_train_d)),
             "validation_size": int(len(X_val_d)),
             "test_size": int(len(X_test_d)),
             "split": "60% train / 20% validation / 20% test",
-            "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels",
+            "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels; slang/sarcasm gold labels",
         },
         "document_level": {
             "majority_baseline_accuracy": round(dummy_acc, 4),

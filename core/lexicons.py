@@ -18,14 +18,18 @@ ASPECT_KEYWORDS = {
             "good examples", "makes sense", "easy to follow", "clearly",
             "articulate", "comprehensible", "digestible", "crystal clear",
             "clear explanation", "clarity", "great explanations", "well explained",
-            "explain difficult concepts simple", "explanation sharp", "sabi book"
+            "explain difficult concepts simple", "explanation sharp", "sabi book",
+            "sabi", "sabi die", "enter head", "break down complex", "tear lecture",
+            "wella", "nothing dey enter head", "dey enter head", "crystal clear"
         ],
         "negative": [
             "does not explain", "doesn't explain", "difficult to understand", "hard to understand",
             "complicates", "rushes through", "confusing", "hard to follow",
             "disorganized explanation", "unclear", "speaks too fast", "vague", "jumps between topics",
             "poor explanation", "cannot understand", "hard to comprehend",
-            "explanation no clear", "nobody dey grab", "talk to himself"
+            "explanation no clear", "nobody dey grab", "talk to himself",
+            "mumu man", "no sabi", "talk to himself", "nobody dey grab", "no head",
+            "scatter brain", "speak in tongues", "sleep for class", "read slides"
         ],
         "neutral": ["standard explanation", "textbook explanation", "moderate", "adequate", "syllabus coverage"]
     },
@@ -48,14 +52,16 @@ ASPECT_KEYWORDS = {
             "fair grading", "grades fairly", "detailed feedback", "exams match",
             "returns quickly", "clear rubrics", "transparent grading", "constructive feedback",
             "objective", "marking is fair", "grading is fair", "fair marking", "fair tests",
-            "marks are fair", "helpful feedback", "ca test was fair", "results came out quick"
+            "marks are fair", "helpful feedback", "ca test was fair", "results came out quick",
+            "mark well", "if you sabi you go pass", "just marking", "no wahala"
         ],
         "negative": [
             "unfair grading", "arbitrary", "inconsistent", "never taught",
             "takes weeks", "no rubric", "random marks", "harsh grading",
             "scripts never returned", "vague feedback", "grading was unfair", "grading is unfair",
             "unfair marking", "harsh marking", "harsh", "unfair exams", "unreasonable exams", "harshly",
-            "grading harsh", "person write well still fail"
+            "grading harsh", "person write well still fail", "mark wickedly", "fail for nothing",
+            "mark anyhow", "mark randomly", "fail people like competition"
         ],
         "neutral": ["standard grading", "normal scale", "two tests and one exam", "administered as scheduled"]
     },
@@ -79,14 +85,16 @@ ASPECT_KEYWORDS = {
             "available during office", "office hours", "approachable", "makes time",
             "willing to assist", "readily accessible", "door is open", "mentors students",
             "always available", "accessible", "easy to reach", "helpful outside class",
-            "dey reply emails", "very approachable"
+            "dey reply emails", "very approachable", "sharp sharp", "no dulling",
+            "dey make time", "easy to reach", "no wahala"
         ],
         "negative": [
             "impossible to reach", "never available", "doors locked", "dismissive",
             "unreachable", "impatient", "cannot reach", "cancels office",
             "not available", "hard to reach", "unavailable",
             "office door always locked", "impossible to see him for office",
-            "no dey answer", "very unapproachable"
+            "no dey answer", "very unapproachable", "no dey reply", "run from students",
+            "impossible to see", "shun students", "office door locked"
         ],
         "neutral": ["office hours by appointment", "consultation hours", "standard university hours"]
     },
@@ -138,6 +146,7 @@ NEGATION_MARKERS = {
     "nowhere", "hardly", "scarcely", "barely", "impossible", "unanswered",
     "cancels", "doesn't", "don't", "won't", "can't", "couldn't",
     "wouldn't", "shouldn't", "isn't", "aren't", "wasn't", "weren't",
-    "hasn't", "haven't", "hadn't", "didn't", "without", "rarely"
+    "hasn't", "haven't", "hadn't", "didn't", "without", "rarely",
+    "no be", "no get", "no dey", "no sabi", "mumu", "rubbish", "nonsense"
 }
 
