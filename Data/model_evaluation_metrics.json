@@ -1,0 +1,187 @@
+{
+  "dataset": {
+    "nigerian_records": 10000,
+    "synthetic_records": 1600,
+    "total_records": 11600,
+    "train_size": 6960,
+    "validation_size": 2320,
+    "test_size": 2320,
+    "split": "60% train / 20% validation / 20% test",
+    "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels"
+  },
+  "document_level": {
+    "majority_baseline_accuracy": 0.3978,
+    "svm": {
+      "accuracy": 0.7513,
+      "macro_precision": 0.6807,
+      "macro_recall": 0.6813,
+      "macro_f1": 0.6373,
+      "weighted_f1": 0.6917,
+      "confusion_matrix": [
+        [
+          767,
+          51,
+          0
+        ],
+        [
+          242,
+          76,
+          261
+        ],
+        [
+          0,
+          23,
+          900
+        ]
+      ],
+      "classes": [
+        "positive",
+        "neutral",
+        "negative"
+      ],
+      "selected_C": 2.0,
+      "validation_macro_f1": 0.6503,
+      "cv_macro_f1_mean": 0.6512,
+      "cv_macro_f1_std": 0.0074
+    },
+    "naive_bayes": {
+      "accuracy": 0.769,
+      "macro_precision": 0.7821,
+      "macro_recall": 0.6941,
+      "macro_f1": 0.6347,
+      "weighted_f1": 0.6928,
+      "confusion_matrix": [
+        [
+          815,
+          3,
+          0
+        ],
+        [
+          255,
+          56,
+          268
+        ],
+        [
+          0,
+          10,
+          913
+        ]
+      ],
+      "classes": [
+        "positive",
+        "neutral",
+        "negative"
+      ],
+      "selected_alpha": 0.1,
+      "validation_macro_f1": 0.6408,
+      "cv_macro_f1_mean": 0.6447,
+      "cv_macro_f1_std": 0.0056
+    }
+  },
+  "aspect_level": [
+    {
+      "Aspect": "Teaching Clarity",
+      "Samples": 2089,
+      "SVM_Acc": 0.7871,
+      "SVM_Macro_F1": 0.7235,
+      "SVM_Weighted_F1": 0.7553,
+      "SVM_Val_Macro_F1": 0.6875,
+      "NB_Acc": 0.8014,
+      "NB_Macro_F1": 0.7188,
+      "NB_Weighted_F1": 0.7543,
+      "NB_Val_Macro_F1": 0.6875,
+      "Best_Model": "SVM"
+    },
+    {
+      "Aspect": "Course Organisation",
+      "Samples": 2139,
+      "SVM_Acc": 0.8154,
+      "SVM_Macro_F1": 0.7396,
+      "SVM_Weighted_F1": 0.7823,
+      "SVM_Val_Macro_F1": 0.6726,
+      "NB_Acc": 0.8224,
+      "NB_Macro_F1": 0.7437,
+      "NB_Weighted_F1": 0.7862,
+      "NB_Val_Macro_F1": 0.659,
+      "Best_Model": "Naive Bayes"
+    },
+    {
+      "Aspect": "Assessment and Grading",
+      "Samples": 2054,
+      "SVM_Acc": 0.8297,
+      "SVM_Macro_F1": 0.7529,
+      "SVM_Weighted_F1": 0.7946,
+      "SVM_Val_Macro_F1": 0.7104,
+      "NB_Acc": 0.8248,
+      "NB_Macro_F1": 0.7404,
+      "NB_Weighted_F1": 0.785,
+      "NB_Val_Macro_F1": 0.7161,
+      "Best_Model": "SVM"
+    },
+    {
+      "Aspect": "Lecturer Punctuality",
+      "Samples": 2059,
+      "SVM_Acc": 0.8034,
+      "SVM_Macro_F1": 0.7218,
+      "SVM_Weighted_F1": 0.7642,
+      "SVM_Val_Macro_F1": 0.6516,
+      "NB_Acc": 0.8058,
+      "NB_Macro_F1": 0.7151,
+      "NB_Weighted_F1": 0.76,
+      "NB_Val_Macro_F1": 0.661,
+      "Best_Model": "SVM"
+    },
+    {
+      "Aspect": "Availability",
+      "Samples": 2140,
+      "SVM_Acc": 0.75,
+      "SVM_Macro_F1": 0.6607,
+      "SVM_Weighted_F1": 0.7139,
+      "SVM_Val_Macro_F1": 0.6719,
+      "NB_Acc": 0.7897,
+      "NB_Macro_F1": 0.668,
+      "NB_Weighted_F1": 0.7259,
+      "NB_Val_Macro_F1": 0.6828,
+      "Best_Model": "Naive Bayes"
+    },
+    {
+      "Aspect": "Communication",
+      "Samples": 407,
+      "SVM_Acc": 1.0,
+      "SVM_Macro_F1": 1.0,
+      "SVM_Weighted_F1": 1.0,
+      "SVM_Val_Macro_F1": 1.0,
+      "NB_Acc": 0.9268,
+      "NB_Macro_F1": 0.9293,
+      "NB_Weighted_F1": 0.9255,
+      "NB_Val_Macro_F1": 1.0,
+      "Best_Model": "SVM"
+    },
+    {
+      "Aspect": "Student Interaction",
+      "Samples": 1721,
+      "SVM_Acc": 0.7942,
+      "SVM_Macro_F1": 0.7087,
+      "SVM_Weighted_F1": 0.751,
+      "SVM_Val_Macro_F1": 0.7413,
+      "NB_Acc": 0.7913,
+      "NB_Macro_F1": 0.6954,
+      "NB_Weighted_F1": 0.7409,
+      "NB_Val_Macro_F1": 0.718,
+      "Best_Model": "SVM"
+    },
+    {
+      "Aspect": "Use of Teaching Materials",
+      "Samples": 1641,
+      "SVM_Acc": 0.7538,
+      "SVM_Macro_F1": 0.6795,
+      "SVM_Weighted_F1": 0.7237,
+      "SVM_Val_Macro_F1": 0.6791,
+      "NB_Acc": 0.8024,
+      "NB_Macro_F1": 0.7078,
+      "NB_Weighted_F1": 0.7533,
+      "NB_Val_Macro_F1": 0.6968,
+      "Best_Model": "Naive Bayes"
+    }
+  ]
+}

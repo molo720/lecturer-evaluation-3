@@ -1,0 +1,16 @@
+.vercel
+venv312/
+__pycache__/
+*.py[cod]
+*.pkl.bak
+.vscode/
+.vs/
+new.claude/
+_tmp_*.py
+_import_live_feedback.py
+.DS_Store
+Thumbs.db
+*.db-wal
+*.db-shm
+.railwayignore
+
