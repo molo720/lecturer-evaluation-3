@@ -13,7 +13,15 @@ Thumbs.db
 *.db-wal
 *.db-shm
 .railwayignore
-Data/
-models/
-*.pkl
+Data/feedback.db
+Data/*.db
+Data/classification_results_summary.csv
+Data/model_evaluation_metrics.json
+Data/preprocessed_evaluations.csv
+Data/synthetic_evaluations.csv
+Data/nigerian_lecturer_evaluations_10000.csv
+Data/crf_training_data.csv
+Data/lecturer_composite_scores.csv
+!Data/nigerian_slang_dataset.csv
+*.pkl.bak
 

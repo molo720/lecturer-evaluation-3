@@ -177,7 +177,17 @@ nigerian_slang_templates = {
             "Very responsive to student inquiries",
             "E dey communicate like pro, no confusion",
             "Updates dey reach us on time",
-            "Communication dey excellent, e dey carry us along"
+            "Communication dey excellent, e dey carry us along",
+            "E dey reply WhatsApp messages sharp sharp",
+            "Class rep dey always get info on time",
+            "E dey use group chat well to pass info",
+            "Communication dey clear, no wahala at all",
+            "E dey inform us before time, no last minute rush",
+            "Very good with emails, e dey reply sharp",
+            "E dey make sure everybody understand announcement",
+            "Communication dey top notch, e no dey hide info",
+            "E dey pass information properly, no confusion",
+            "Always updated us on everything, e dey carry us along"
         ],
         "negative": [
             "This man no dey reply emails at all",
@@ -189,13 +199,25 @@ nigerian_slang_templates = {
             "No proper channel of communication",
             "E dey fail to respond to urgent matters",
             "Communication dey zero, e no dey talk to us",
-            "Unreliable information, confusing announcements"
+            "Unreliable information, confusing announcements",
+            "E dey read messages but no dey reply",
+            "WhatsApp group dey dry, e no dey post anything",
+            "Class rep dey suffer to get info from am",
+            "E dey announce things after e don happen",
+            "No proper communication, we dey hear am for road",
+            "E dey ignore class rep messages",
+            "Communication dey wack, e no dey pass info",
+            "E dey keep us in the dark about everything",
+            "No information flow, e just dey do anyhow",
+            "E dey fail to inform us about important things"
         ],
         "neutral": [
             "E dey communicate through class rep",
             "Standard university communication channels",
             "Updates dey come through normal channels",
-            "Communication dey okay, nothing special"
+            "Communication dey okay, nothing special",
+            "E dey send emails sometimes",
+            "Normal level of communication"
         ]
     },
     "Student Interaction": {
@@ -262,6 +284,106 @@ nigerian_slang_templates = {
             "Normal university materials"
         ]
     }
+}
+
+# Nigerian insults and derogatory terms (mapped to negative aspects)
+nigerian_insults = {
+    "Teaching Clarity": [
+        "This mumu man no sabi teach at all",
+        "This guy dey talk nonsense for class",
+        "This man na olodo, e no sabi anything",
+        "This lecturer na mumu, e dey confuse person",
+        "This man dey talk like say e no go school",
+        "This guy na idiot, e no dey understand wetin e dey teach",
+        "This man dey dull, e no sabi explain anything",
+        "This lecturer na waste, e no fit teach",
+        "This man dey talk rubbish, nothing dey enter head",
+        "This guy na clown, e dey make person laugh instead of learn"
+    ],
+    "Course Organisation": [
+        "This man dey scatter everything, no sense at all",
+        "This guy dey organize course like mumu",
+        "This lecturer na olodo, e no get plan",
+        "This man dey confuse course organization, e no know wetin e dey do",
+        "This guy dey run course like agbero",
+        "This man dey do anyhow, no proper organization",
+        "This lecturer na clown, e dey disorganize everything",
+        "This man dey mess up course structure completely",
+        "This guy dey act like say e no know syllabus",
+        "This man na waste of space, course dey scatter"
+    ],
+    "Assessment and Grading": [
+        "This man dey mark like wicked person",
+        "This guy dey fail people intentionally, e dey wicked",
+        "This lecturer na olodo with marking, e no sabi mark",
+        "This man dey mark anyhow, e dey fail people for nothing",
+        "This guy dey act like say we dey do am favor",
+        "This man dey mark person wickedly, heartless",
+        "This lecturer na mumu with grading, e no dey fair",
+        "This man dey mark like enemy, e dey fail us",
+        "This guy dey give random marks, e no sabi wetin e dey do",
+        "This man na evil with marking, e dey fail people"
+    ],
+    "Lecturer Punctuality": [
+        "This man dey come late like say na am own time",
+        "This guy dey waste our time with lateness",
+        "This lecturer na olodo, e no respect time",
+        "This man dey come class late everyday, mumu behavior",
+        "This guy dey act like time no dey important",
+        "This man dey always late, e no get shame",
+        "This lecturer na clown with time, e dey late always",
+        "This man dey disrespect us with lateness",
+        "This guy dey come late like agbero, no respect",
+        "This man na waste, e dey always late"
+    ],
+    "Availability": [
+        "This man dey hide from students like rat",
+        "This guy dey impossible to reach, e dey run",
+        "This lecturer na olodo, e no dey available",
+        "This man dey lock office door like say thief dey pursue am",
+        "This guy dey act like say we dey disturb am",
+        "This man dey run from students, e no dey help",
+        "This lecturer na mumu, e no dey see students",
+        "This man dey make himself unavailable, wicked",
+        "This guy dey behave like say we no important",
+        "This man na waste, e no dey help at all"
+    ],
+    "Communication": [
+        "This man no dey reply, e dey form busy",
+        "This guy dey ignore messages like say we no exist",
+        "This lecturer na olodo, e no sabi communicate",
+        "This man dey keep info to himself, selfish",
+        "This guy dey act like say communication na crime",
+        "This man dey fail to respond, e dey dull",
+        "This lecturer na mumu, e no dey inform us",
+        "This man dey ignore us like say we be ghost",
+        "This guy dey behave like say we no deserve info",
+        "This man na waste, communication dey zero"
+    ],
+    "Student Interaction": [
+        "This man dey intimidate students like bully",
+        "This guy dey treat students like slaves",
+        "This lecturer na olodo, e no dey interact",
+        "This man dey insult students for class",
+        "This guy dey act like say we be children",
+        "This man dey make class hostile, e dey fight",
+        "This lecturer na mumu, e no dey carry us along",
+        "This man dey disrespect students well well",
+        "This guy dey behave like say we be enemies",
+        "This man na waste, e no dey interact at all"
+    ],
+    "Use of Teaching Materials": [
+        "This man no dey give materials, e dey stingy",
+        "This guy dey force us buy textbook, e dey greedy",
+        "This lecturer na olodo, e no dey provide materials",
+        "This man dey use old slides, e dey dull",
+        "This guy dey act like say materials na gold",
+        "This man dey refuse to share notes, wicked",
+        "This lecturer na mumu, e no dey give anything",
+        "This man dey use bad materials, e no try",
+        "This guy dey behave like say materials na luxury",
+        "This man na waste, materials dey zero"
+    ]
 }
 
 # Sarcasm templates - explicitly sarcastic comments
@@ -388,7 +510,7 @@ lecturers = [
 
 def generate_nigerian_slang_dataset(num_samples=2000):
     """
-    Generates dataset with Nigerian slangs, informal expressions, and sarcasm.
+    Generates dataset with Nigerian slangs, informal expressions, sarcasm, and insults.
     """
     aspect_list = list(nigerian_slang_templates.keys())
     records = []
@@ -397,14 +519,24 @@ def generate_nigerian_slang_dataset(num_samples=2000):
         ccode, cname = random.choice(courses)
         lecturer = random.choice(lecturers)
 
-        # Decide if this will be slang or sarcasm (70% slang, 30% sarcasm)
-        is_sarcasm = random.random() < 0.3
+        # Decide if this will be slang, sarcasm, or insult (50% slang, 20% sarcasm, 30% insults)
+        rand_val = random.random()
+        if rand_val < 0.5:
+            comment_type = "slang"
+        elif rand_val < 0.7:
+            comment_type = "sarcasm"
+        else:
+            comment_type = "insult"
 
-        if is_sarcasm:
+        if comment_type == "sarcasm":
             # Generate sarcastic comment
             templates = sarcasm_templates
             # Sarcasm is typically negative, even when phrased as "positive"
             target_sentiment = random.choice(["negative", "negative", "negative", "positive"])
+        elif comment_type == "insult":
+            # Generate insult comment (always negative)
+            templates = nigerian_insults
+            target_sentiment = "negative"
         else:
             # Generate slang comment
             templates = nigerian_slang_templates
@@ -417,10 +549,14 @@ def generate_nigerian_slang_dataset(num_samples=2000):
         clause_labels = []
 
         for idx, asp in enumerate(selected_aspects):
-            if is_sarcasm:
+            if comment_type == "sarcasm":
                 # For sarcasm, always use negative template regardless of target
                 sentiment = "negative"
                 phrase = random.choice(templates[asp].get("negative", templates[asp].get("positive", [""])))
+            elif comment_type == "insult":
+                # Insults are always negative
+                sentiment = "negative"
+                phrase = random.choice(templates[asp])
             else:
                 if target_sentiment == "neutral":
                     sentiment = "neutral"
@@ -441,8 +577,8 @@ def generate_nigerian_slang_dataset(num_samples=2000):
             comment_text = clauses[0] + ", and " + clauses[1] + ", but " + clauses[2]
 
         # Determine rating based on sentiment
-        if is_sarcasm:
-            # Sarcasm is typically negative
+        if comment_type in ["sarcasm", "insult"]:
+            # Sarcasm and insults are typically negative
             rating = random.choice([1, 2, 1, 2])
             doc_sentiment = "negative"
         else:
