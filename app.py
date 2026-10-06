@@ -376,9 +376,8 @@ def dashboard():
 def model_evaluation():
     """ Comparative Evaluation of SVM and Naive Bayes."""
     global evaluation_metrics
-    metrics_path = os.path.join(
-        os.path.dirname(DATABASE_PATH), "model_evaluation_metrics.json"
-    )
+        from core.db import data_file
+    metrics_path = data_file("model_evaluation_metrics.json")
     if not evaluation_metrics and os.path.exists(metrics_path):
         with open(metrics_path, "r") as f:
             evaluation_metrics = json.load(f)
