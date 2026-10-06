@@ -23,6 +23,7 @@ from core.lexicons import ASPECTS, ASPECT_KEYWORDS, NEGATION_MARKERS
 from core.db import (
     get_db, init_db, get_lecturer_names, seed_db_if_empty,
     get_site_settings, update_site_settings, DATABASE_PATH,
+    data_file,
     import_nigerian_live_feedback
 )
 from core.ml_engine import load_all_models, run_analysis, generate_textual_summary
@@ -281,7 +282,7 @@ def dashboard():
 
     db = get_db()
     rows = db.execute('SELECT * FROM feedback').fetchall()
-    
+
     lecturer_map = {}
     sentiment_dist = {"positive": 0, "neutral": 0, "negative": 0}
     aspect_counts = {a: {"positive": 0, "neutral": 0, "negative": 0} for a in ASPECTS}
@@ -292,7 +293,7 @@ def dashboard():
         lec = r['lecturer_name']
         rating = r['rating']
         total_ratings += rating
-        
+
         if lec not in lecturer_map:
             lecturer_map[lec] = {
                 "name": lec,
@@ -301,7 +302,7 @@ def dashboard():
                 "sentiments": {"positive": 0, "neutral": 0, "negative": 0},
                 "aspects": {a: 0 for a in ASPECTS}
             }
-        
+
         lecturer_map[lec]["count"] += 1
         lecturer_map[lec]["ratings"].append(rating)
 
@@ -334,7 +335,7 @@ def dashboard():
         p_pct = round((d["sentiments"]["positive"] / c) * 100) if c > 0 else 0
         u_pct = round((d["sentiments"]["neutral"] / c) * 100) if c > 0 else 0
         n_pct = round((d["sentiments"]["negative"] / c) * 100) if c > 0 else 0
-        
+
         top_asp = max(d["aspects"], key=d["aspects"].get) if d["aspects"] else "Teaching Clarity"
         if d["aspects"][top_asp] == 0:
             top_asp = "Teaching Clarity"
@@ -376,7 +377,6 @@ def dashboard():
 def model_evaluation():
     """ Comparative Evaluation of SVM and Naive Bayes."""
     global evaluation_metrics
-        from core.db import data_file
     metrics_path = data_file("model_evaluation_metrics.json")
     if not evaluation_metrics and os.path.exists(metrics_path):
         with open(metrics_path, "r") as f:
@@ -386,7 +386,7 @@ def model_evaluation():
 @app.route('/admin/retrain', methods=['POST', 'GET'])
 @admin_required
 def admin_retrain():
-    
+
     try:
         from src.train_models import main as run_train
         run_train()
@@ -413,7 +413,7 @@ def lecturer_report(lecturer_name):
 
     db = get_db()
     rows = db.execute('SELECT * FROM feedback WHERE lecturer_name = ? ORDER BY submitted_at DESC', (lecturer_name,)).fetchall()
-    
+
     total = len(rows)
     ratings = [r['rating'] for r in rows]
     avg_rating = round(sum(ratings) / total, 2) if total > 0 else 0
@@ -484,7 +484,7 @@ def course_report(course_name):
     """ Per-course summary report."""
     db = get_db()
     rows = db.execute('SELECT * FROM feedback WHERE course = ? ORDER BY submitted_at DESC', (course_name,)).fetchall()
-    
+
     total = len(rows)
     ratings = [r['rating'] for r in rows]
     avg_rating = round(sum(ratings) / total, 2) if total > 0 else 0
@@ -602,7 +602,7 @@ def upload():
 
                     req_cols = {'comment', 'rating'}
                     cols_lower = {c.lower(): c for c in df.columns}
-                    
+
                     if not req_cols.issubset(set(cols_lower.keys())):
                         error = f"Uploaded file must contain 'comment' and 'rating' columns. Found: {list(df.columns)}"
                     else:
@@ -623,7 +623,7 @@ def upload():
                                 r_val = int(row[rating_col])
                             except Exception:
                                 r_val = 3
-                            
+
                             lec = str(row[lec_col]).strip() if lec_col and pd.notna(row[lec_col]) else "Dr. Okafor"
                             crs = str(row[course_col]).strip() if course_col and pd.notna(row[course_col]) else "Computer Science"
                             cdc = str(row[code_col]).strip() if code_col and pd.notna(row[code_col]) else "CSC"
@@ -633,12 +633,12 @@ def upload():
                                 INSERT INTO feedback (student_name, matric_number, lecturer_name, course, course_code, rating, comment, document_sentiment)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                             ''', ("Anonymous", "ANON", lec, crs, cdc, r_val, c_text, analysis['document_sentiment']))
-                            
+
                             if len(results) < 15:
                                 analysis['lecturer'] = lec
                                 analysis['course'] = crs
                                 results.append(analysis)
-                            
+
                             count_added += 1
 
                         db.commit()
@@ -653,7 +653,7 @@ def upload():
 @app.route('/export/csv')
 @admin_required
 def export_csv():
-    
+
     db = get_db()
     rows = db.execute('SELECT * FROM feedback ORDER BY submitted_at DESC').fetchall()
     output = io.StringIO()
@@ -696,7 +696,7 @@ def export_lecturer_csv(lecturer_name):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    
+
     if session.get('user_id'):
         return redirect(staff_home_url())
 
