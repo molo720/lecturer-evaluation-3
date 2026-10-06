@@ -55,7 +55,7 @@ def data_file(*parts):
     return os.path.join(data_dir(), *parts)
 
 
-DATABASE_PATH = data_file("feedback.db")
+DATABASE_PATH = os.environ.get("DATABASE_PATH") or data_file("feedback.db")
 
 DEFAULT_SETTINGS = {
     "announcement_banner": "2025/2026 Academic Session — Anonymous Student Evaluation of Teaching (SET) Portal Active",
