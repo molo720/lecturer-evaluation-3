@@ -155,9 +155,12 @@ def run_analysis_cached(comment_text, rating_val):
         # 2. Polarity determination
         if matched_clause:
             clause_clean = clean_text(matched_clause)
+            # If keyword matched (especially negative insults), use keyword sentiment
+            # Never let ML classifier override explicit keyword matches
             if keyword_sentiment in ("positive", "negative"):
                 final_sentiment = keyword_sentiment
             else:
+                # Only use ML classifier if no keyword sentiment was found
                 final_sentiment = predict_aspect_sentiment(aspect, clause_clean)
 
             # 3. Negation handling

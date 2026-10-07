@@ -150,6 +150,6 @@ NEGATION_MARKERS = {
     "cancels", "doesn't", "don't", "won't", "can't", "couldn't",
     "wouldn't", "shouldn't", "isn't", "aren't", "wasn't", "weren't",
     "hasn't", "haven't", "hadn't", "didn't", "without", "rarely",
-    "no be", "no get", "no dey", "no sabi", "mumu", "rubbish", "nonsense"
+    "no be", "no get", "no dey", "no sabi"
 }
 
