@@ -377,6 +377,9 @@ ASPECT_NAME_MAP = {
     "class rep & student relations / drama": "Student Interaction",
     "use of teaching materials": "Use of Teaching Materials",
     "handouts & textbook sales": "Use of Teaching Materials",
+    "venue & infrastructure complaints": "Communication",
+    "off-topic rants & preaching": "Communication",
+    "personal appearance & fashion": "Student Interaction",
 }
 
 
