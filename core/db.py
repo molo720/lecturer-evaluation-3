@@ -46,6 +46,7 @@ def data_dir():
     for path in candidates:
         if os.path.isdir(path):
             return path
+    # On Railway/Linux, create data directory
     path = os.path.join(root, "data")
     os.makedirs(path, exist_ok=True)
     return path

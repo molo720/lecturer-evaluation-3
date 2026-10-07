@@ -6,6 +6,16 @@ from functools import lru_cache
 from core.lexicons import ASPECTS, ASPECT_KEYWORDS, NEGATION_MARKERS
 from src.preprocessing import clean_text, preprocess_for_vectorizer
 
+def project_root():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def models_dir():
+    """Get the models directory, creating it if it doesn't exist."""
+    root = project_root()
+    path = os.path.join(root, "models")
+    os.makedirs(path, exist_ok=True)
+    return path
+
 # In-memory model cache
 svm_doc_model = None
 nb_doc_model = None
@@ -17,27 +27,46 @@ evaluation_metrics = {}
 def load_all_models():
     """Loads document-level and aspect-level trained models into memory cache."""
     global svm_doc_model, nb_doc_model, doc_vectorizer, aspect_models, aspect_vectorizers
-    
+
+    models_path = models_dir()
+    print(f"[INFO] Looking for models in: {models_path}")
+
     # 1. Document-level models
-    if os.path.exists("models/svm_document.pkl"):
-        svm_doc_model = joblib.load("models/svm_document.pkl")
-    if os.path.exists("models/nb_document.pkl"):
-        nb_doc_model = joblib.load("models/nb_document.pkl")
-    if os.path.exists("models/vectorizer_document.pkl"):
-        doc_vectorizer = joblib.load("models/vectorizer_document.pkl")
-    print("[INFO] Loaded document-level SVM and Naive Bayes models.")
+    svm_path = os.path.join(models_path, "svm_document.pkl")
+    nb_path = os.path.join(models_path, "nb_document.pkl")
+    vec_path = os.path.join(models_path, "vectorizer_document.pkl")
+
+    if os.path.exists(svm_path):
+        svm_doc_model = joblib.load(svm_path)
+        print("[INFO] Loaded document-level SVM model.")
+    else:
+        print(f"[WARNING] Document-level SVM model not found at {svm_path}")
+
+    if os.path.exists(nb_path):
+        nb_doc_model = joblib.load(nb_path)
+        print("[INFO] Loaded document-level Naive Bayes model.")
+    else:
+        print(f"[WARNING] Document-level Naive Bayes model not found at {nb_path}")
+
+    if os.path.exists(vec_path):
+        doc_vectorizer = joblib.load(vec_path)
+        print("[INFO] Loaded document-level vectorizer.")
+    else:
+        print(f"[WARNING] Document-level vectorizer not found at {vec_path}")
 
     # 2. Aspect-level models
     aspect_models = {}
     aspect_vectorizers = {}
     for aspect in ASPECTS:
         clean_name = aspect.lower().replace(" ", "_")
-        svm_path = f"models/svm_{clean_name}.pkl"
-        vec_path = f"models/vectorizer_{clean_name}.pkl"
+        svm_path = os.path.join(models_path, f"svm_{clean_name}.pkl")
+        vec_path = os.path.join(models_path, f"vectorizer_{clean_name}.pkl")
         if os.path.exists(svm_path) and os.path.exists(vec_path):
             aspect_models[aspect] = joblib.load(svm_path)
             aspect_vectorizers[aspect] = joblib.load(vec_path)
-    print(f"[INFO] Loaded {len(aspect_models)} aspect-specific models.")
+        else:
+            print(f"[WARNING] Aspect model files not found for {aspect}: {svm_path}, {vec_path}")
+    print(f"[INFO] Loaded {len(aspect_models)} aspect-specific models out of {len(ASPECTS)} total.")
 
 def predict_document_sentiment(cleaned_text):
     """Predicts overall document sentiment using the trained Linear SVM."""

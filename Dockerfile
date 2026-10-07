@@ -19,6 +19,9 @@ COPY . .
 RUN mkdir -p /app/data \
     && if [ -d /app/Data ]; then cp -a /app/Data/. /app/data/; fi
 
+# Ensure models directory exists
+RUN mkdir -p /app/models
+
 EXPOSE 5000
 
 CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 180
