@@ -22,6 +22,11 @@ RUN mkdir -p /app/data \
 # Ensure models directory exists
 RUN mkdir -p /app/models
 
+# Ensure model_evaluation_metrics.json exists
+RUN if [ ! -f /app/data/model_evaluation_metrics.json ]; then \
+    echo '{"dataset": {}, "document_level": {}, "aspect_level": [], "runtime": {}}' > /app/data/model_evaluation_metrics.json; \
+    fi
+
 EXPOSE 5000
 
 CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 180

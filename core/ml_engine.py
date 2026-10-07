@@ -124,8 +124,10 @@ def run_analysis_cached(comment_text, rating_val):
         # 1. Match clauses against aspect keywords (check negative first for insults)
         for orig_c, clean_c in zip(clauses, clauses_clean):
             orig_lower = orig_c.lower()
+            # Sort keywords by length (longest first) to match phrases before words
             # Check negative keywords first (for insults and derogatory terms)
-            for kw in keywords.get("negative", []):
+            negative_keywords = sorted(keywords.get("negative", []), key=len, reverse=True)
+            for kw in negative_keywords:
                 if kw in orig_lower:
                     matched_clause = orig_c
                     keyword_sentiment = "negative"
@@ -133,8 +135,9 @@ def run_analysis_cached(comment_text, rating_val):
                     break
             if matched_clause:
                 break
-            # Then check positive keywords
-            for kw in keywords.get("positive", []):
+            # Then check positive keywords (sorted by length)
+            positive_keywords = sorted(keywords.get("positive", []), key=len, reverse=True)
+            for kw in positive_keywords:
                 if kw in orig_lower:
                     matched_clause = orig_c
                     keyword_sentiment = "positive"
@@ -142,8 +145,9 @@ def run_analysis_cached(comment_text, rating_val):
                     break
             if matched_clause:
                 break
-            # Finally check neutral keywords
-            for kw in keywords.get("neutral", []):
+            # Finally check neutral keywords (sorted by length)
+            neutral_keywords = sorted(keywords.get("neutral", []), key=len, reverse=True)
+            for kw in neutral_keywords:
                 if kw in orig_lower:
                     matched_clause = orig_c
                     keyword_sentiment = "neutral"
@@ -172,13 +176,19 @@ def run_analysis_cached(comment_text, rating_val):
             score_map = {"positive": 1.0, "neutral": 0.0, "negative": -1.0}
             numeric_score = score_map.get(final_sentiment, 0.0)
 
+            # Convert sentiment to score for display
+            sentiment_score_map = {"positive": 5, "neutral": 3, "negative": 1}
+            sentiment_score = sentiment_score_map.get(final_sentiment, 3)
+
             aspect_results.append({
                 "aspect": aspect,
                 "sentiment": final_sentiment,
                 "score": numeric_score,
-                "evidence": matched_clause.strip(),
+                "span": matched_clause.strip(),  # Changed from "evidence" to "span" for template
                 "keyword": matched_keyword or "classifier-inferred",
-                "negated": has_negation(matched_clause)
+                "negated": has_negation(matched_clause),
+                "sentiment_score": sentiment_score,  # Added for template
+                "composite_score": numeric_score  # Added for template
             })
             aspect_scores[aspect] = numeric_score
         else:

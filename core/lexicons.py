@@ -20,7 +20,7 @@ ASPECT_KEYWORDS = {
             "clear explanation", "clarity", "great explanations", "well explained",
             "explain difficult concepts simple", "explanation sharp", "sabi book",
             "sabi", "sabi die", "enter head", "break down complex", "tear lecture",
-            "wella", "dey enter head", "crystal clear"
+            "wella", "dey enter head"
         ],
         "negative": [
             "does not explain", "doesn't explain", "difficult to understand", "hard to understand",
@@ -30,7 +30,8 @@ ASPECT_KEYWORDS = {
             "explanation no clear", "nobody dey grab", "talk to himself",
             "mumu", "mumu man", "no sabi", "talk to himself", "nobody dey grab", "no head",
             "scatter brain", "speak in tongues", "sleep for class", "read slides",
-            "nothing dey enter head", "olodo", "clown", "waste", "idiot"
+            "nothing dey enter head", "olodo", "clown", "waste", "idiot",
+            "foolish", "stupid", "idiotic", "nonsense", "rubbish"
         ],
         "neutral": ["standard explanation", "textbook explanation", "moderate", "adequate", "syllabus coverage"]
     },
