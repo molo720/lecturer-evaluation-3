@@ -1,6 +1,7 @@
 import gzip
 import io
 import time
+import os
 from functools import wraps
 from flask import request, after_this_request
 
@@ -9,7 +10,10 @@ from flask import request, after_this_request
 # =========================================================================
 _DASHBOARD_CACHE = {}
 _CACHE_TIMESTAMP = 0
-_CACHE_TTL = 300  # 5 minutes default TTL
+
+# Use shorter cache on Railway to ensure fresh data after uploads
+IS_RAILWAY = os.environ.get('RAILWAY_ENVIRONMENT')
+_CACHE_TTL = 30 if IS_RAILWAY else 300  # 30 seconds on Railway, 5 minutes locally
 
 def get_cached_dashboard():
     """Retrieves cached dashboard metrics if valid and not expired."""
