@@ -104,6 +104,10 @@ def run_analysis_cached(comment_text, rating_val):
     LRU-cached aspect extraction and sentiment polarity inference.
     Caches parsed results so dashboard aggregations and repeated comments execute in microseconds.
     """
+    """
+    LRU-cached aspect extraction and sentiment polarity inference.
+    Caches parsed results so dashboard aggregations and repeated comments execute in microseconds.
+    """
     preprocessed_full = clean_text(comment_text)
     clauses = split_into_clauses(comment_text)
     clauses_clean = [clean_text(c) for c in clauses]
@@ -117,17 +121,10 @@ def run_analysis_cached(comment_text, rating_val):
         keyword_sentiment = None
         matched_keyword = None
 
-        # 1. Match clauses against aspect keywords
+        # 1. Match clauses against aspect keywords (check negative first for insults)
         for orig_c, clean_c in zip(clauses, clauses_clean):
             orig_lower = orig_c.lower()
-            for kw in keywords.get("positive", []):
-                if kw in orig_lower:
-                    matched_clause = orig_c
-                    keyword_sentiment = "positive"
-                    matched_keyword = kw
-                    break
-            if matched_clause:
-                break
+            # Check negative keywords first (for insults and derogatory terms)
             for kw in keywords.get("negative", []):
                 if kw in orig_lower:
                     matched_clause = orig_c
@@ -136,6 +133,16 @@ def run_analysis_cached(comment_text, rating_val):
                     break
             if matched_clause:
                 break
+            # Then check positive keywords
+            for kw in keywords.get("positive", []):
+                if kw in orig_lower:
+                    matched_clause = orig_c
+                    keyword_sentiment = "positive"
+                    matched_keyword = kw
+                    break
+            if matched_clause:
+                break
+            # Finally check neutral keywords
             for kw in keywords.get("neutral", []):
                 if kw in orig_lower:
                     matched_clause = orig_c

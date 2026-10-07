@@ -20,7 +20,7 @@ ASPECT_KEYWORDS = {
             "clear explanation", "clarity", "great explanations", "well explained",
             "explain difficult concepts simple", "explanation sharp", "sabi book",
             "sabi", "sabi die", "enter head", "break down complex", "tear lecture",
-            "wella", "nothing dey enter head", "dey enter head", "crystal clear"
+            "wella", "dey enter head", "crystal clear"
         ],
         "negative": [
             "does not explain", "doesn't explain", "difficult to understand", "hard to understand",
@@ -28,8 +28,9 @@ ASPECT_KEYWORDS = {
             "disorganized explanation", "unclear", "speaks too fast", "vague", "jumps between topics",
             "poor explanation", "cannot understand", "hard to comprehend",
             "explanation no clear", "nobody dey grab", "talk to himself",
-            "mumu man", "no sabi", "talk to himself", "nobody dey grab", "no head",
-            "scatter brain", "speak in tongues", "sleep for class", "read slides"
+            "mumu", "mumu man", "no sabi", "talk to himself", "nobody dey grab", "no head",
+            "scatter brain", "speak in tongues", "sleep for class", "read slides",
+            "nothing dey enter head", "olodo", "clown", "waste", "idiot"
         ],
         "neutral": ["standard explanation", "textbook explanation", "moderate", "adequate", "syllabus coverage"]
     },
@@ -61,7 +62,8 @@ ASPECT_KEYWORDS = {
             "scripts never returned", "vague feedback", "grading was unfair", "grading is unfair",
             "unfair marking", "harsh marking", "harsh", "unfair exams", "unreasonable exams", "harshly",
             "grading harsh", "person write well still fail", "mark wickedly", "fail for nothing",
-            "mark anyhow", "mark randomly", "fail people like competition"
+            "mark anyhow", "mark randomly", "fail people like competition",
+            "likes money", "greedy", "money", "buy textbook", "force us to buy"
         ],
         "neutral": ["standard grading", "normal scale", "two tests and one exam", "administered as scheduled"]
     },
@@ -121,7 +123,7 @@ ASPECT_KEYWORDS = {
             "intimidates students", "one-way monologue", "dull", "discourages questions",
             "dismisses questions", "hostile", "unengaging", "ridicules students",
             "no interaction", "monotonous", "ignores questions",
-            "personal issues with students"
+            "personal issues with students", "likes helpless", "female students"
         ],
         "neutral": ["standard lecture", "some questions", "large lecture hall", "instructional"]
     },
