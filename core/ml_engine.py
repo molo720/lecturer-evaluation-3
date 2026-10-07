@@ -98,12 +98,8 @@ def has_negation(text):
     words = re.findall(r'\b\w+\b', text.lower())
     return any(w in NEGATION_MARKERS for w in words)
 
-@lru_cache(maxsize=8192)
+@lru_cache(maxsize=0)  # Disabled cache to force re-analysis with updated lexicons
 def run_analysis_cached(comment_text, rating_val):
-    """
-    LRU-cached aspect extraction and sentiment polarity inference.
-    Caches parsed results so dashboard aggregations and repeated comments execute in microseconds.
-    """
     """
     LRU-cached aspect extraction and sentiment polarity inference.
     Caches parsed results so dashboard aggregations and repeated comments execute in microseconds.
