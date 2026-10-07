@@ -3,6 +3,7 @@ import random
 import json
 import shutil
 import ast
+import time
 import numpy as np
 import pandas as pd
 import joblib
@@ -571,6 +572,8 @@ def main():
     print("    LECTURER EVALUATION SYSTEM:  MODEL TRAINING", flush=True)
     print("========================================================================", flush=True)
 
+    start_time = time.time()
+
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(project_root)
     
@@ -719,10 +722,12 @@ def main():
             "SVM_Macro_F1": round(svm_macro_f1, 4),
             "SVM_Weighted_F1": round(svm_weight_f1, 4),
             "SVM_Val_Macro_F1": round(best_svm_f1, 4),
+            "SVM_Confusion_Matrix": confusion_matrix(y_te, svm_asp_pred).tolist(),
             "NB_Acc": round(nb_acc, 4),
             "NB_Macro_F1": round(nb_macro_f1, 4),
             "NB_Weighted_F1": round(nb_weight_f1, 4),
             "NB_Val_Macro_F1": round(best_nb_f1, 4),
+            "NB_Confusion_Matrix": confusion_matrix(y_te, nb_asp_pred).tolist(),
             "Best_Model": "SVM" if svm_macro_f1 >= nb_macro_f1 else "Naive Bayes",
         })
 
@@ -732,6 +737,11 @@ def main():
     asp_results_df.to_csv("data/classification_results_summary.csv", index=False)
 
     print("\n[STEP 5/5] Saving detailed metrics for the evaluation dashboard...", flush=True)
+
+    end_time = time.time()
+    runtime_seconds = end_time - start_time
+    runtime_minutes = runtime_seconds / 60
+
     metrics_data = {
         "dataset": {
             "nigerian_records": int(len(nigerian_df)),
@@ -750,6 +760,11 @@ def main():
             "naive_bayes": nb_doc_metrics,
         },
         "aspect_level": aspect_metrics,
+        "runtime": {
+            "total_seconds": round(runtime_seconds, 2),
+            "total_minutes": round(runtime_minutes, 2),
+            "hardware": "Local training on development machine"
+        }
     }
 
     with open("data/model_evaluation_metrics.json", "w") as f:
@@ -758,6 +773,7 @@ def main():
     print("Model metrics saved to data/model_evaluation_metrics.json.", flush=True)
     print("=" * 70, flush=True)
     print("   ALL MODELS TRAINED AND SAVED SUCCESSFULLY!", flush=True)
+    print(f"   Total training time: {runtime_seconds:.2f} seconds ({runtime_minutes:.2f} minutes)", flush=True)
     print("========================================================================", flush=True)
 
 if __name__ == "__main__":
