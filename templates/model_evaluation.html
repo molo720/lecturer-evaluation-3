@@ -1,5 +1,44 @@
 {% extends "base.html" %}
 {% block title %}Model Evaluation — SVM vs Naive Bayes{% endblock %}
+{% block extra_css %}
+<style>
+.confusion-matrix {
+    display: inline-block;
+    margin: 10px;
+    font-size: 12px;
+}
+.confusion-matrix table {
+    border-collapse: collapse;
+    text-align: center;
+}
+.confusion-matrix th, .confusion-matrix td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    min-width: 60px;
+}
+.confusion-matrix th {
+    background: #f1f5f9;
+    font-weight: 600;
+}
+.per-class-metrics {
+    margin-top: 12px;
+    font-size: 13px;
+}
+.per-class-metrics table {
+    border-collapse: collapse;
+    width: 100%;
+}
+.per-class-metrics th, .per-class-metrics td {
+    border: 1px solid #e2e8f0;
+    padding: 8px 12px;
+    text-align: center;
+}
+.per-class-metrics th {
+    background: #f8fafc;
+    font-weight: 600;
+}
+</style>
+{% endblock %}
 {% block content %}
 <div class="header">
     <h1>Classifier comparison</h1>
@@ -73,6 +112,112 @@
             </tr>
         </tbody>
     </table>
+    
+    {% if svm.get('confusion_matrix') %}
+    <div style="margin-top: 20px;">
+        <h4 style="font-size: 14px; color:#0f172a; margin-bottom: 10px;">SVM Confusion Matrix</h4>
+        <div class="confusion-matrix">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        {% for label in svm.get('classes', []) %}
+                        <th>{{ label|capitalize }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i, label in enumerate(svm.get('classes', [])) %}
+                    <tr>
+                        <th>{{ label|capitalize }}</th>
+                        {% for val in svm.get('confusion_matrix', [])[i] %}
+                        <td>{{ val }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if svm.get('per_class_metrics') %}
+        <div class="per-class-metrics">
+            <h4 style="font-size: 14px; color:#0f172a; margin-bottom: 8px;">SVM Per-Class Metrics</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Class</th>
+                        <th>Precision</th>
+                        <th>Recall</th>
+                        <th>F1</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for class_name, metrics in svm.get('per_class_metrics', {}).items() %}
+                    <tr>
+                        <td>{{ class_name|capitalize }}</td>
+                        <td>{{ metrics.precision }}</td>
+                        <td>{{ metrics.recall }}</td>
+                        <td>{{ metrics.f1 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% if nb.get('confusion_matrix') %}
+    <div style="margin-top: 20px;">
+        <h4 style="font-size: 14px; color:#0f172a; margin-bottom: 10px;">Naive Bayes Confusion Matrix</h4>
+        <div class="confusion-matrix">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        {% for label in nb.get('classes', []) %}
+                        <th>{{ label|capitalize }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i, label in enumerate(nb.get('classes', [])) %}
+                    <tr>
+                        <th>{{ label|capitalize }}</th>
+                        {% for val in nb.get('confusion_matrix', [])[i] %}
+                        <td>{{ val }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if nb.get('per_class_metrics') %}
+        <div class="per-class-metrics">
+            <h4 style="font-size: 14px; color:#0f172a; margin-bottom: 8px;">Naive Bayes Per-Class Metrics</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Class</th>
+                        <th>Precision</th>
+                        <th>Recall</th>
+                        <th>F1</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for class_name, metrics in nb.get('per_class_metrics', {}).items() %}
+                    <tr>
+                        <td>{{ class_name|capitalize }}</td>
+                        <td>{{ metrics.precision }}</td>
+                        <td>{{ metrics.recall }}</td>
+                        <td>{{ metrics.f1 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 
 <div class="card">

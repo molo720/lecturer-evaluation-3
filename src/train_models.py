@@ -495,6 +495,20 @@ def classify_metrics(y_true, y_pred, labels=("positive", "neutral", "negative"))
         y_true, y_pred, average="weighted", zero_division=0
     )
     cm = confusion_matrix(y_true, y_pred, labels=list(labels))
+    
+    # Per-class metrics
+    p_per_class, r_per_class, f1_per_class, _ = precision_recall_fscore_support(
+        y_true, y_pred, labels=list(labels), average=None, zero_division=0
+    )
+    
+    per_class_metrics = {}
+    for i, label in enumerate(labels):
+        per_class_metrics[label] = {
+            "precision": round(p_per_class[i], 4),
+            "recall": round(r_per_class[i], 4),
+            "f1": round(f1_per_class[i], 4),
+        }
+    
     return {
         "accuracy": round(acc, 4),
         "macro_precision": round(p_macro, 4),
@@ -503,6 +517,7 @@ def classify_metrics(y_true, y_pred, labels=("positive", "neutral", "negative"))
         "weighted_f1": round(f1_weight, 4),
         "confusion_matrix": cm.tolist(),
         "classes": list(labels),
+        "per_class_metrics": per_class_metrics,
     }
 
 

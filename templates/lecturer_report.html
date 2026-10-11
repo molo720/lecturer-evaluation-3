@@ -119,8 +119,8 @@
             {% endfor %}
         </select>
         {% endif %}
-        <button onclick="window.print()" style="margin: 0; width: auto; padding: 12px 20px; background: #0284c7; box-shadow: none;">
-            Print / Save as PDF
+        <button onclick="window.print()" title="Opens browser print dialog. Use 'Save as PDF' in print options to export. No server-generated PDF is produced." style="margin: 0; width: auto; padding: 12px 20px; background: #0284c7; box-shadow: none;">
+            Print / Save as PDF (browser)
         </button>
         <a href="{{ url_for('export_lecturer_csv', lecturer_name=lecturer_name) }}" class="btn-sm" style="display: flex; align-items: center; background: #10b981; color: white; border-radius: 10px; padding: 12px 20px; text-decoration: none; font-weight: 600;">
             Export CSV
@@ -200,12 +200,15 @@
                 <td style="color: #64748b; font-weight: 600;">{{ counts.neutral }}</td>
                 <td style="color: #dc2626; font-weight: 600;">{{ counts.negative }}</td>
                 <td>
-                    {% if counts.positive > counts.negative %}
-                        <span class="badge" style="background: #dcfce7; color: #15803d;">Strength Area</span>
-                    {% elif counts.negative > counts.positive %}
-                        <span class="badge" style="background: #fee2e2; color: #b91c1c;">Improvement Area</span>
+                    {% set status = data.aspect_statuses.get(aspect, 'insufficient') %}
+                    {% if status == 'strength' %}
+                        <span class="badge" style="background: #dcfce7; color: #15803d;">{{ data.aspect_status_labels.strength }}</span>
+                    {% elif status == 'improvement' %}
+                        <span class="badge" style="background: #fee2e2; color: #b91c1c;">{{ data.aspect_status_labels.improvement }}</span>
+                    {% elif status == 'balanced' %}
+                        <span class="badge" style="background: #f1f5f9; color: #475569;">{{ data.aspect_status_labels.balanced }}</span>
                     {% else %}
-                        <span class="badge" style="background: #f1f5f9; color: #475569;">Balanced / Neutral</span>
+                        <span class="badge" style="background: #fef9c3; color: #854d0e;">{{ data.aspect_status_labels.insufficient }}</span>
                     {% endif %}
                 </td>
             </tr>
