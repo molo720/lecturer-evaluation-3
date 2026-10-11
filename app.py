@@ -26,7 +26,9 @@ from core.db import (
     data_file,
     import_nigerian_live_feedback
 )
-from core.ml_engine import load_all_models, run_analysis, generate_textual_summary
+from core.ml_engine import (
+    load_all_models, run_analysis, generate_textual_summary, aspect_status_map, ASPECT_STATUS_LABELS
+)
 from core.optimizations import (
     setup_compression, get_cached_dashboard, set_cached_dashboard, invalidate_dashboard_cache
 )
@@ -120,7 +122,7 @@ def analysis_from_row(row):
     if raw:
         try:
             stored = json.loads(raw)
-            if isinstance(stored, dict) and 'document_sentiment' in stored:
+            if isinstance(stored, dict) and stored.get('analysis_version') == 2:
                 return stored, False
         except (TypeError, ValueError):
             pass
@@ -311,8 +313,10 @@ def dashboard():
         if needs_persist:
             analysis_updates.append((r['id'], ana))
         doc_sent = ana['document_sentiment']
-        sentiment_dist[doc_sent] += 1
-        lecturer_map[lec]["sentiments"][doc_sent] += 1
+        if doc_sent in sentiment_dist:
+            sentiment_dist[doc_sent] += 1
+        if doc_sent in lecturer_map[lec]["sentiments"]:
+            lecturer_map[lec]["sentiments"][doc_sent] += 1
 
         for asp in ana['aspects']:
             a_name = asp['aspect']
@@ -430,7 +434,7 @@ def lecturer_report(lecturer_name):
         s = ana['document_sentiment']
         if s == 'positive': pos_count += 1
         elif s == 'negative': neg_count += 1
-        else: neu_count += 1
+        elif s == 'neutral': neu_count += 1
 
         for asp in ana['aspects']:
             a_name = asp['aspect']
@@ -451,7 +455,8 @@ def lecturer_report(lecturer_name):
     neu_pct = round((neu_count / total) * 100) if total > 0 else 0
     neg_pct = round((neg_count / total) * 100) if total > 0 else 0
 
-    textual_summary = generate_textual_summary(aspect_counts, "positive" if pos_count > neg_count else "negative")
+    textual_summary = generate_textual_summary(aspect_counts)
+    aspect_statuses = aspect_status_map(aspect_counts)
 
     data = {
         "count": total,
@@ -463,6 +468,8 @@ def lecturer_report(lecturer_name):
         "neu_pct": neu_pct,
         "neg_pct": neg_pct,
         "aspect_counts": aspect_counts,
+        "aspect_statuses": aspect_statuses,
+        "aspect_status_labels": ASPECT_STATUS_LABELS,
         "aspect_order": ASPECTS,
         "textual_summary": textual_summary
     }
@@ -499,6 +506,7 @@ def course_report(course_name):
             analysis_updates.append((r['id'], ana))
         if ana['document_sentiment'] == 'positive': pos_c += 1
         elif ana['document_sentiment'] == 'negative': neg_c += 1
+        # unclassified / insufficient evidence is excluded from pos/neg KPIs
 
         for asp in ana['aspects']:
             if asp['aspect'] in aspect_counts:
@@ -515,6 +523,8 @@ def course_report(course_name):
         "pos_pct": pos_pct,
         "neg_pct": neg_pct,
         "aspect_counts": aspect_counts,
+        "aspect_statuses": aspect_status_map(aspect_counts),
+        "aspect_status_labels": ASPECT_STATUS_LABELS,
         "aspect_order": ASPECTS
     }
 

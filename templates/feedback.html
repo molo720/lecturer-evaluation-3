@@ -64,6 +64,8 @@
                     <span class="badge" style="background: #dcfce7; color: #15803d;">Positive</span>
                     {% elif f.document_sentiment == 'negative' %}
                     <span class="badge" style="background: #fee2e2; color: #b91c1c;">Negative</span>
+                    {% elif f.document_sentiment == 'unclassified' %}
+                    <span class="badge" style="background: #fef9c3; color: #854d0e;">Unclassified</span>
                     {% else %}
                     <span class="badge" style="background: #f1f5f9; color: #475569;">Neutral</span>
                     {% endif %}

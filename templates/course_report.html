@@ -101,12 +101,15 @@
                 <td style="color: #64748b; font-weight: 700;">{{ counts.neutral }}</td>
                 <td style="color: #dc2626; font-weight: 700;">{{ counts.negative }}</td>
                 <td>
-                    {% if counts.positive > counts.negative %}
-                        <span class="badge" style="background: #dcfce7; color: #15803d;">Positive</span>
-                    {% elif counts.negative > counts.positive %}
-                        <span class="badge" style="background: #fee2e2; color: #b91c1c;">Negative</span>
+                    {% set status = data.aspect_statuses.get(aspect, 'insufficient') if data.aspect_statuses is defined else 'insufficient' %}
+                    {% if status == 'strength' %}
+                        <span class="badge" style="background: #dcfce7; color: #15803d;">{{ data.aspect_status_labels.strength }}</span>
+                    {% elif status == 'improvement' %}
+                        <span class="badge" style="background: #fee2e2; color: #b91c1c;">{{ data.aspect_status_labels.improvement }}</span>
+                    {% elif status == 'balanced' %}
+                        <span class="badge" style="background: #f1f5f9; color: #475569;">{{ data.aspect_status_labels.balanced }}</span>
                     {% else %}
-                        <span class="badge" style="background: #f1f5f9; color: #475569;">Neutral</span>
+                        <span class="badge" style="background: #fef9c3; color: #854d0e;">{{ data.aspect_status_labels.insufficient }}</span>
                     {% endif %}
                 </td>
             </tr>

@@ -39,6 +39,8 @@
     .badge.positive { background: #d1fae5; color: #065f46; }
     .badge.neutral { background: #f1f5f9; color: #475569; }
     .badge.negative { background: #fee2e2; color: #991b1b; }
+    .badge.unclassified { background: #ffedd5; color: #9a3412; }
+    .badge.unclassified { background: #fef9c3; color: #854d0e; }
     
     .aspect-detail { font-size: 14px; color: #475569; line-height: 1.6; }
     .aspect-detail .label { color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 10px; display: block; font-weight: 600; }
@@ -189,16 +191,21 @@
             </div>
             {% endfor %}
         {% else %}
-            <div style="background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; color: #64748b;">
-                No specific aspect keywords detected in this comment. Evaluated using overall document-level classifier.
+            <div style="background: #fefce8; padding: 20px; border-radius: 12px; text-align: center; color: #854d0e;">
+                Unclassified / insufficient evidence — no teaching aspect was matched. A 0.0 score is not treated as validated neutral evidence.
             </div>
         {% endif %}
     </div>
 
     <div class="score-box">
-        <div class="score-label">Overall Composite Indicator </div>
+        <div class="score-label">Overall Composite Indicator</div>
+        {% if results.overall_cs is not none %}
         <div class="score-value">{{ results.overall_cs }}</div>
-        
+        <div class="score-scale" style="opacity:0.7; font-size:13px; margin-top:8px;">Range −1.0 (negative) to +1.0 (positive). Unmatched aspects are excluded.</div>
+        {% else %}
+        <div class="score-value" style="font-size:28px;">Insufficient evidence</div>
+        <div class="score-scale" style="opacity:0.7; font-size:13px; margin-top:8px;">No matched aspects, so no composite score is assigned.</div>
+        {% endif %}
     </div>
 </div>
 {% endif %}

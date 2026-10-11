@@ -88,123 +88,235 @@ def predict_aspect_sentiment(aspect_name, clause_text):
             pass
     return "neutral"
 
+POLARITY_TO_SIGNED = {"positive": 1.0, "neutral": 0.0, "negative": -1.0}
+POLARITY_TO_SET = {"positive": 5, "neutral": 3, "negative": 1}
+NEGATION_WINDOW = 5
+UNCLASSIFIED = "unclassified"
+INSUFFICIENT = "insufficient_evidence"
+
+ASPECT_STATUS_LABELS = {
+    "strength": "Strength Area",
+    "improvement": "Improvement Area",
+    "balanced": "Balanced / Neutral",
+    "insufficient": "Insufficient evidence",
+}
+
+# Contractions and n't forms that word-tokenizers otherwise split.
+_NEGATION_PATTERN = re.compile(
+    r"\b(?:not|never|no|none|nobody|nothing|neither|nowhere|hardly|scarcely|barely|"
+    r"without|rarely|cannot|doesn't|doesnt|don't|dont|won't|wont|can't|cant|"
+    r"couldn't|couldnt|wouldn't|wouldnt|shouldn't|shouldnt|isn't|isnt|aren't|arent|"
+    r"wasn't|wasnt|weren't|werent|hasn't|hasnt|haven't|havent|hadn't|hadnt|"
+    r"didn't|didnt|no be|no get|no dey|no sabi)\b|n['’]t\b",
+    re.IGNORECASE,
+)
+
+
 def split_into_clauses(text):
     """Splits a comment into grammatical sub-clauses for fine-grained aspect analysis."""
-    clauses = re.split(r'[,;.\n]+|\b(?:but|however|although|though|except|whereas|and yet|on the other hand)\b', text, flags=re.IGNORECASE)
+    clauses = re.split(
+        r'[,;.\n]+|\b(?:but|however|although|though|except|whereas|and yet|on the other hand)\b',
+        text,
+        flags=re.IGNORECASE,
+    )
     return [c.strip() for c in clauses if c.strip()]
 
+
+def normalize_match_text(text):
+    """Lowercase + contraction expansion so doesn't/isn't match the same as does not / is not."""
+    return clean_text(text or "")
+
+
 def has_negation(text):
-    """Checks if a clause contains a negation marker."""
-    words = re.findall(r'\b\w+\b', text.lower())
+    """True if the text contains a negation marker, including contracted n't forms."""
+    if not text:
+        return False
+    normalized = normalize_match_text(text)
+    if _NEGATION_PATTERN.search(normalized):
+        return True
+    words = re.findall(r"\b\w+\b", normalized)
     return any(w in NEGATION_MARKERS for w in words)
+
+
+def _keyword_encodes_negation(keyword):
+    """Polar keywords such as 'not punctual' already include their sign."""
+    return has_negation(keyword)
+
+
+def _tokens(text):
+    return re.findall(r"\b\w+\b", text.lower())
+
+
+def negation_in_scope(clause, keyword):
+    """
+    Apply negation only in the same clause, to the left of the matched keyword,
+    within NEGATION_WINDOW tokens. Do not re-flip keywords that already contain negation.
+    """
+    if not clause or not keyword:
+        return False
+    haystack = normalize_match_text(clause)
+    kw = normalize_match_text(keyword)
+    if not kw or _keyword_encodes_negation(keyword):
+        return False
+    idx = haystack.find(kw)
+    if idx < 0:
+        return False
+    prefix_tokens = _tokens(haystack[:idx])
+    window = prefix_tokens[-NEGATION_WINDOW:]
+    if not window:
+        return False
+    return any(_NEGATION_PATTERN.search(tok) or tok in NEGATION_MARKERS for tok in window)
+
+
+def _flip_polarity(sentiment):
+    if sentiment == "positive":
+        return "negative"
+    if sentiment == "negative":
+        return "positive"
+    return sentiment
+
+
+def assign_clause_polarity(clause, keyword, keyword_sentiment, aspect_name):
+    """Resolve aspect polarity for one clause: keyword sign, then scoped negation."""
+    haystack = normalize_match_text(clause)
+    if re.search(r"\bnot\s+bad\b", haystack):
+        return "positive", False
+
+    if keyword_sentiment in ("positive", "negative"):
+        sentiment = keyword_sentiment
+    else:
+        sentiment = predict_aspect_sentiment(aspect_name, clean_text(clause))
+
+    applied = False
+    if negation_in_scope(clause, keyword):
+        sentiment = _flip_polarity(sentiment)
+        applied = True
+    return sentiment, applied
+
+
+def find_best_keyword(clause, keywords):
+    """Longest keyword match in the clause; ties prefer negative polarity."""
+    haystack = normalize_match_text(clause)
+    best = None
+    for polarity in ("negative", "positive", "neutral"):
+        for kw in keywords.get(polarity, []):
+            kw_n = normalize_match_text(kw)
+            if not kw_n or kw_n not in haystack:
+                continue
+            candidate = (len(kw_n), 1 if polarity == "negative" else 0, polarity, kw)
+            if best is None or candidate[:2] > best[:2]:
+                best = candidate
+    if best is None:
+        return None
+    return {"polarity": best[2], "keyword": best[3]}
+
+
+def _signed_to_label(mean_score):
+    if mean_score > 0.1:
+        return "positive"
+    if mean_score < -0.1:
+        return "negative"
+    return "neutral"
+
+
+def classify_aspect_status(counts):
+    """Same decision rule as the lecturer-report aspect table."""
+    pos = int((counts or {}).get("positive", 0) or 0)
+    neu = int((counts or {}).get("neutral", 0) or 0)
+    neg = int((counts or {}).get("negative", 0) or 0)
+    if pos + neu + neg == 0:
+        return "insufficient"
+    if pos > neg:
+        return "strength"
+    if neg > pos:
+        return "improvement"
+    return "balanced"
+
+
+def aspect_status_map(aspect_counts):
+    return {aspect: classify_aspect_status(counts) for aspect, counts in (aspect_counts or {}).items()}
+
+
+def compute_composite(rating_val, aspect_signed_scores):
+    """
+    overall_cs = 0.4 * normalized_rating + 0.6 * mean(aspect signed scores)
+    Range is [-1, 1]. Unmatched aspects are omitted (not treated as 0.0 evidence).
+    """
+    if not aspect_signed_scores:
+        return None
+    sentiment_cs = sum(aspect_signed_scores) / len(aspect_signed_scores)
+    try:
+        rating = float(rating_val)
+    except (TypeError, ValueError):
+        rating = 3.0
+    normalized_rating = (rating - 3.0) / 2.0
+    raw = 0.4 * normalized_rating + 0.6 * sentiment_cs
+    return round(max(-1.0, min(1.0, raw)), 2)
+
 
 @lru_cache(maxsize=0)  # Disabled cache to force re-analysis with updated lexicons
 def run_analysis_cached(comment_text, rating_val):
     """
-    LRU-cached aspect extraction and sentiment polarity inference.
-    Caches parsed results so dashboard aggregations and repeated comments execute in microseconds.
+    Aspect extraction and sentiment polarity inference.
+    Unmatched / factual text is unclassified — not validated neutral (0.0) evidence.
     """
     preprocessed_full = clean_text(comment_text)
     clauses = split_into_clauses(comment_text)
-    clauses_clean = [clean_text(c) for c in clauses]
 
     aspect_results = []
-    aspect_scores = {}
 
     for aspect in ASPECTS:
         keywords = ASPECT_KEYWORDS.get(aspect, {})
-        matched_clause = None
-        keyword_sentiment = None
-        matched_keyword = None
-
-        # 1. Match clauses against aspect keywords (check negative first for insults)
-        for orig_c, clean_c in zip(clauses, clauses_clean):
-            orig_lower = orig_c.lower()
-            # Sort keywords by length (longest first) to match phrases before words
-            # Check negative keywords first (for insults and derogatory terms)
-            negative_keywords = sorted(keywords.get("negative", []), key=len, reverse=True)
-            for kw in negative_keywords:
-                if kw in orig_lower:
-                    matched_clause = orig_c
-                    keyword_sentiment = "negative"
-                    matched_keyword = kw
-                    break
-            if matched_clause:
-                break
-            # Then check positive keywords (sorted by length)
-            positive_keywords = sorted(keywords.get("positive", []), key=len, reverse=True)
-            for kw in positive_keywords:
-                if kw in orig_lower:
-                    matched_clause = orig_c
-                    keyword_sentiment = "positive"
-                    matched_keyword = kw
-                    break
-            if matched_clause:
-                break
-            # Finally check neutral keywords (sorted by length)
-            neutral_keywords = sorted(keywords.get("neutral", []), key=len, reverse=True)
-            for kw in neutral_keywords:
-                if kw in orig_lower:
-                    matched_clause = orig_c
-                    keyword_sentiment = "neutral"
-                    matched_keyword = kw
-                    break
-            if matched_clause:
-                break
-
-        # 2. Polarity determination
-        if matched_clause:
-            clause_clean = clean_text(matched_clause)
-            # If keyword matched (especially negative insults), use keyword sentiment
-            # Never let ML classifier override explicit keyword matches
-            if keyword_sentiment in ("positive", "negative"):
-                final_sentiment = keyword_sentiment
-            else:
-                # Only use ML classifier if no keyword sentiment was found
-                final_sentiment = predict_aspect_sentiment(aspect, clause_clean)
-
-            # 3. Negation handling
-            if has_negation(matched_clause):
-                if "not bad" in matched_clause.lower():
-                    final_sentiment = "positive"
-                elif final_sentiment == "positive":
-                    final_sentiment = "negative"
-                elif final_sentiment == "negative":
-                    final_sentiment = "positive"
-
-            score_map = {"positive": 1.0, "neutral": 0.0, "negative": -1.0}
-            numeric_score = score_map.get(final_sentiment, 0.0)
-
-            # Convert sentiment to score for display
-            sentiment_score_map = {"positive": 5, "neutral": 3, "negative": 1}
-            sentiment_score = sentiment_score_map.get(final_sentiment, 3)
-
-            aspect_results.append({
-                "aspect": aspect,
-                "sentiment": final_sentiment,
-                "score": numeric_score,
-                "span": matched_clause.strip(),  # Changed from "evidence" to "span" for template
-                "keyword": matched_keyword or "classifier-inferred",
-                "negated": has_negation(matched_clause),
-                "sentiment_score": sentiment_score,  # Added for template
-                "composite_score": numeric_score  # Added for template
+        clause_hits = []
+        for orig_c in clauses:
+            hit = find_best_keyword(orig_c, keywords)
+            if not hit:
+                continue
+            sentiment, applied_neg = assign_clause_polarity(
+                orig_c, hit["keyword"], hit["polarity"], aspect
+            )
+            clause_hits.append({
+                "clause": orig_c.strip(),
+                "keyword": hit["keyword"],
+                "sentiment": sentiment,
+                "score": POLARITY_TO_SIGNED.get(sentiment, 0.0),
+                "negated": applied_neg,
             })
-            aspect_scores[aspect] = numeric_score
-        else:
-            aspect_scores[aspect] = 0.0
 
-    # Overall Composite Score
-    active_scores = [a['score'] for a in aspect_results]
-    sentiment_cs = (sum(active_scores) / len(active_scores)) if active_scores else 0.0
-    normalized_rating = (rating_val - 3.0) / 2.0
-    overall_cs = round(0.4 * normalized_rating + 0.6 * sentiment_cs, 2)
+        if not clause_hits:
+            continue
 
-    doc_sentiment = predict_document_sentiment(preprocessed_full)
-    if doc_sentiment == "neutral" and active_scores:
-        if sentiment_cs > 0.1:
-            doc_sentiment = "positive"
-        elif sentiment_cs < -0.1:
-            doc_sentiment = "negative"
+        mean_score = sum(h["score"] for h in clause_hits) / len(clause_hits)
+        final_sentiment = _signed_to_label(mean_score)
+        numeric_score = POLARITY_TO_SIGNED[final_sentiment]
+        aspect_results.append({
+            "aspect": aspect,
+            "sentiment": final_sentiment,
+            "score": numeric_score,
+            "span": " | ".join(h["clause"] for h in clause_hits),
+            "keyword": clause_hits[0]["keyword"],
+            "negated": any(h["negated"] for h in clause_hits),
+            "mention_count": len(clause_hits),
+            "sentiment_score": POLARITY_TO_SET[final_sentiment],
+            "composite_score": numeric_score,
+            "coverage": "matched",
+        })
+
+    active_scores = [a["score"] for a in aspect_results]
+    overall_cs = compute_composite(rating_val, active_scores)
+
+    if not aspect_results:
+        doc_sentiment = UNCLASSIFIED
+        evidence_status = INSUFFICIENT
+    else:
+        evidence_status = "ok"
+        sentiment_cs = sum(active_scores) / len(active_scores)
+        doc_sentiment = predict_document_sentiment(preprocessed_full)
+        if doc_sentiment == "neutral":
+            if sentiment_cs > 0.1:
+                doc_sentiment = "positive"
+            elif sentiment_cs < -0.1:
+                doc_sentiment = "negative"
 
     return {
         "comment": comment_text,
@@ -212,7 +324,9 @@ def run_analysis_cached(comment_text, rating_val):
         "preprocessed": preprocessed_full,
         "aspects": aspect_results,
         "overall_cs": overall_cs,
-        "document_sentiment": doc_sentiment
+        "document_sentiment": doc_sentiment,
+        "evidence_status": evidence_status,
+        "analysis_version": 2,
     }
 
 def run_analysis(comment, rating=3):
@@ -226,35 +340,57 @@ def run_analysis(comment, rating=3):
     # Return a shallow copy so callers don't mutate cached results
     return dict(res)
 
-def generate_textual_summary(aspect_counts, overall_sentiment):
-    """Generates automated qualitative synthesis and actionable recommendations (Section 3.6.2)."""
-    strengths = []
-    weaknesses = []
+def generate_textual_summary(aspect_counts, overall_sentiment=None):
+    """Prose uses the same count rules as the aspect table (strength / improvement / balanced / insufficient)."""
+    statuses = aspect_status_map(aspect_counts)
+    strengths = [a for a, s in statuses.items() if s == "strength"]
+    weaknesses = [a for a, s in statuses.items() if s == "improvement"]
+    balanced = [a for a, s in statuses.items() if s == "balanced"]
+    insufficient = [a for a, s in statuses.items() if s == "insufficient"]
+    evidenced = strengths + weaknesses + balanced
 
-    for aspect, counts in aspect_counts.items():
-        total = sum(counts.values())
-        if total > 0:
-            pos_ratio = counts["positive"] / total
-            neg_ratio = counts["negative"] / total
-            if pos_ratio >= 0.5:
-                strengths.append(aspect)
-            elif neg_ratio >= 0.35:
-                weaknesses.append(aspect)
+    if overall_sentiment is None:
+        if not evidenced:
+            overall_sentiment = INSUFFICIENT
+        elif len(strengths) > len(weaknesses):
+            overall_sentiment = "positive"
+        elif len(weaknesses) > len(strengths):
+            overall_sentiment = "negative"
+        else:
+            overall_sentiment = "balanced"
 
     paragraphs = []
-    if overall_sentiment == "positive":
+    if overall_sentiment == INSUFFICIENT or not evidenced:
+        paragraphs.append(
+            "There is insufficient aspect-level evidence to characterise this lecturer's teaching profile."
+        )
+    elif overall_sentiment == "positive":
         paragraphs.append("Overall sentiment towards this lecturer's pedagogical engagement is predominantly positive.")
     elif overall_sentiment == "negative":
         paragraphs.append("Student sentiment indicates targeted areas requiring institutional pedagogy and engagement review.")
     else:
-        paragraphs.append("Student evaluation comments reflect balanced feedback with moderate ratings across core teaching aspects.")
+        paragraphs.append(
+            "Student evaluation comments reflect mixed or balanced evidence across aspects that were actually mentioned."
+        )
 
     if strengths:
         paragraphs.append(f"Core teaching strengths commended by students include: {', '.join(strengths)}.")
     if weaknesses:
-        paragraphs.append(f"Identified developmental priorities for departmental improvement include: {', '.join(weaknesses)}.")
-    else:
+        paragraphs.append(
+            f"Identified developmental priorities for departmental improvement include: {', '.join(weaknesses)}."
+        )
+    elif evidenced:
         paragraphs.append("No critical aspect-level deficiencies were highlighted across student submissions.")
+
+    if balanced:
+        paragraphs.append(
+            f"Aspects with equal positive and negative mention counts (Balanced / Neutral): {', '.join(balanced)}."
+        )
+    if insufficient:
+        paragraphs.append(
+            "Aspects with no extracted mentions (Insufficient evidence, not Balanced / Neutral): "
+            + ", ".join(insufficient) + "."
+        )
 
     recommendations = []
     if "Assessment and Grading" in weaknesses:
@@ -268,8 +404,10 @@ def generate_textual_summary(aspect_counts, overall_sentiment):
     if "Use of Teaching Materials" in weaknesses:
         recommendations.append("Upload modern lecture slides, readings, and supplementary materials in advance.")
 
-    if not recommendations:
+    if evidenced and not recommendations:
         recommendations.append("Continue maintaining high standards of instructional quality and responsive student mentoring.")
+    elif not evidenced:
+        recommendations.append("Collect further student comments before issuing aspect-level developmental recommendations.")
 
     paragraphs.append("Actionable Next Steps: " + " ".join(recommendations))
     return " ".join(paragraphs)
