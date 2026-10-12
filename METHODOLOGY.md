@@ -104,7 +104,16 @@ The standard random split can place the same phrase-bank item in both training a
 - Validation is performed only within the non-held-out pool; the held-out test set is not used for hyperparameter selection.
 - The experiment uses the synthetic phrase-bank corpus only. It does not test transfer to real student feedback and does not measure aspect-identification accuracy.
 
-The experiment entry point is python -m src.evaluate_template_holdout. Its JSON output records the held-out IDs, train/validation/test sizes, overlap assertions, SVM and NB metrics, confusion matrices, and per-class support. The automated workflow archives that output. **Only values from a successful completed run should be copied into the final thesis.** Until the benchmark artefact is available and reviewed, do not claim that the holdout experiment has passed or quote placeholder values.
+The experiment entry point is python -m src.evaluate_template_holdout. A successful GitHub Actions run on 12 October 2026 (run 38305693936) generated and archived the benchmark JSON. The run generated 1,600 synthetic phrase-template records, held out 43 phrase items across the aspect/polarity banks, and placed every comment containing at least one held-out phrase item in the test set. The resulting non-held-out pool contained 720 records (576 inner-training and 144 validation records); the held-out test set contained 880 records. Assertions confirmed that training and test rows were disjoint and that held-out phrase IDs were absent from the training pool. This is a held-out phrase-template test, not a test of authentic student feedback.
+
+| Phrase-template holdout model | Test accuracy | Test Macro-F1 | Test weighted-F1 |
+|---|---:|---:|---:|
+| Linear SVM (selected C=2.0; validation Macro-F1 0.9482) | 0.7261 | 0.7153 | 0.7264 |
+| Multinomial Naive Bayes (selected alpha=1.0; validation Macro-F1 0.9262) | 0.7080 | 0.6948 | 0.7077 |
+
+Per-class support in this holdout test was Positive=365, Neutral=189, Negative=326 (880 comments total). SVM per-class precision/recall/F1 were Positive 0.7500/0.7315/0.7406; Neutral 0.6410/0.6614/0.6510; Negative 0.7508/0.7577/0.7542. Naive Bayes values were Positive 0.7265/0.7205/0.7235; Neutral 0.6270/0.6138/0.6203; Negative 0.7327/0.7485/0.7405.
+
+The benchmark JSON records the exact 43 held-out phrase IDs, both confusion matrices, model settings and split sizes, and is archived as the GitHub Actions artifact “template-family-holdout-metrics” for run 38305693936. This run provides evidence of performance on unseen phrase items within the synthetic phrase-bank generator. It does not validate aspect-extraction precision/recall/F1, transfer to authentic student feedback, or user usefulness. A held-out comment may still contain other non-held-out phrases; the entire comment is nonetheless excluded from training.
 
 Near-duplicate detection across the complete 13,600-record corpus has not been established by the existing manuscript alone. Do not say that exact duplicates were removed or that a TF-IDF similarity threshold was applied unless a repeatable duplicate audit and its counts are supplied.
 
