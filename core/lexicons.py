@@ -43,7 +43,7 @@ ASPECT_KEYWORDS = {
             "course outline well organized", "no rush at all"
         ],
         "negative": [
-            "poorly organized", "no clear syllabus", "disorganized", "rushed in the final weeks",
+            "poorly organized", "not organized", "is not organized", "no clear syllabus", "disorganized", "rushed in the final weeks",
             "lacks structure", "disjointed", "shifted erratically", "unorganized", "chaotic course",
             "no proper syllabus", "topics jumping around", "course outline completely disorganized"
         ],
