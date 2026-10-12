@@ -315,10 +315,13 @@ def main():
     if overlap:
         raise AssertionError(f"Template leakage: {len(overlap)} exact phrase(s) overlap")
 
+    train_majority_label = Counter(y_train).most_common(1)[0][0]
+    baseline_test_accuracy = sum(y == train_majority_label for y in y_test) / len(y_test)
     doc_metrics = {
         "linear_svm": class_metrics(y_test, svm_pred),
         "multinomial_naive_bayes": class_metrics(y_test, nb_pred),
-        "baseline_most_frequent_accuracy": round(float(max(Counter(y_train).values()) / len(y_train)), 4),
+        "baseline_train_majority_label": train_majority_label,
+        "baseline_most_frequent_accuracy": round(float(baseline_test_accuracy), 4),
         "test_label_distribution": dict(Counter(y_test)),
     }
     results = {
