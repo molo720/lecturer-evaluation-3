@@ -735,12 +735,38 @@ def main():
         svm_asp_pred = svm_asp.predict(X_te_v)
         nb_asp_pred = nb_asp.predict(X_te_v)
 
+        metric_labels = ("positive", "neutral", "negative")
         svm_acc = accuracy_score(y_te, svm_asp_pred)
-        _, _, svm_macro_f1, _ = precision_recall_fscore_support(y_te, svm_asp_pred, average="macro", zero_division=0)
-        _, _, svm_weight_f1, _ = precision_recall_fscore_support(y_te, svm_asp_pred, average="weighted", zero_division=0)
+        _, _, svm_macro_f1, _ = precision_recall_fscore_support(
+            y_te, svm_asp_pred, labels=list(metric_labels), average="macro", zero_division=0
+        )
+        _, _, svm_weight_f1, _ = precision_recall_fscore_support(
+            y_te, svm_asp_pred, labels=list(metric_labels), average="weighted", zero_division=0
+        )
         nb_acc = accuracy_score(y_te, nb_asp_pred)
-        _, _, nb_macro_f1, _ = precision_recall_fscore_support(y_te, nb_asp_pred, average="macro", zero_division=0)
-        _, _, nb_weight_f1, _ = precision_recall_fscore_support(y_te, nb_asp_pred, average="weighted", zero_division=0)
+        _, _, nb_macro_f1, _ = precision_recall_fscore_support(
+            y_te, nb_asp_pred, labels=list(metric_labels), average="macro", zero_division=0
+        )
+        _, _, nb_weight_f1, _ = precision_recall_fscore_support(
+            y_te, nb_asp_pred, labels=list(metric_labels), average="weighted", zero_division=0
+        )
+
+        def per_class_support_report(y_true, y_pred):
+            precision, recall, f1, support = precision_recall_fscore_support(
+                y_true, y_pred, labels=list(metric_labels), average=None, zero_division=0
+            )
+            return {
+                label: {
+                    "precision": round(float(precision[i]), 4),
+                    "recall": round(float(recall[i]), 4),
+                    "f1": round(float(f1[i]), 4),
+                    "support": int(support[i]),
+                }
+                for i, label in enumerate(metric_labels)
+            }
+
+        svm_per_class = per_class_support_report(y_te, svm_asp_pred)
+        nb_per_class = per_class_support_report(y_te, nb_asp_pred)
 
         safe_name = aspect.replace(" ", "_").lower()
         joblib.dump(svm_asp, f"models/svm_{safe_name}.pkl")
@@ -749,18 +775,26 @@ def main():
 
         aspect_metrics.append({
             "Aspect": aspect,
-            "Samples": len(sub_data),
+            "Samples": int(len(sub_data)),
+            "Test_Samples": int(len(y_te)),
+            "Classes": list(metric_labels),
+            "SVM_Per_Class_Metrics": svm_per_class,
+            "NB_Per_Class_Metrics": nb_per_class,
             "SVM_Acc": round(svm_acc, 4),
             "SVM_Macro_F1": round(svm_macro_f1, 4),
             "SVM_Weighted_F1": round(svm_weight_f1, 4),
             "SVM_Val_Macro_F1": round(best_svm_f1, 4),
-            "SVM_Confusion_Matrix": confusion_matrix(y_te, svm_asp_pred).tolist(),
+            "SVM_Confusion_Matrix": confusion_matrix(y_te, svm_asp_pred, labels=list(metric_labels)).tolist(),
             "NB_Acc": round(nb_acc, 4),
             "NB_Macro_F1": round(nb_macro_f1, 4),
             "NB_Weighted_F1": round(nb_weight_f1, 4),
             "NB_Val_Macro_F1": round(best_nb_f1, 4),
-            "NB_Confusion_Matrix": confusion_matrix(y_te, nb_asp_pred).tolist(),
-            "Best_Model": "SVM" if svm_macro_f1 >= nb_macro_f1 else "Naive Bayes",
+            "NB_Confusion_Matrix": confusion_matrix(y_te, nb_asp_pred, labels=list(metric_labels)).tolist(),
+            "Best_Model": (
+                "Tie" if abs(svm_macro_f1 - nb_macro_f1) < 1e-12
+                else "SVM" if svm_macro_f1 > nb_macro_f1
+                else "Naive Bayes"
+            ),
         })
 
     asp_results_df = pd.DataFrame(aspect_metrics)
