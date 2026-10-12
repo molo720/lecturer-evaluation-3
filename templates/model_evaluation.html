@@ -58,13 +58,18 @@
 {% if ds %}
 <div class="card">
     <h3 style="margin-bottom: 14px; color:#0f172a;">Training data and split</h3>
-    <p style="font-size:13px; color:#64748b; margin-bottom:8px;">
-        {{ ds.get('nigerian_records', '—') }} Nigerian evaluations + {{ ds.get('synthetic_records', '—') }} synthetic records
-        ({{ ds.get('total_records', '—') }} total). Split: {{ ds.get('split', '—') }}.
+    <p style="font-size:13px; color:#475569; margin-bottom:8px;">
+        {{ ds.get('nigerian_context_records', ds.get('nigerian_records', '—')) }} LLM-generated Nigerian-context comments +
+        {{ ds.get('synthetic_records', '—') }} controlled-template comments +
+        {{ ds.get('slang_records', '—') }} Nigerian slang/sarcasm comments
+        ({{ ds.get('total_records', '—') }} total engineered records).
+    </p>
+    <p style="font-size:13px; color:#92400e; margin-bottom:8px;">
+        {{ ds.get('corpus_scope_note', 'These are synthetic or engineered records, not verified authentic institutional student submissions.') }}
     </p>
     <p style="font-size:13px; color:#64748b;">
-        Train {{ ds.get('train_size', '—') }} · Validation {{ ds.get('validation_size', '—') }} · Test {{ ds.get('test_size', '—') }}.
-        Document labels: {{ ds.get('document_label_source', '—') }}
+        Random split: train {{ ds.get('train_size', '—') }} · validation {{ ds.get('validation_size', '—') }} · test {{ ds.get('test_size', '—') }}.
+        Labels: {{ ds.get('document_label_source', '—') }}. Template-family holdout is reported separately.
     </p>
 </div>
 {% endif %}
@@ -149,6 +154,7 @@
                         <th>Precision</th>
                         <th>Recall</th>
                         <th>F1</th>
+                        <th>Support</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -158,6 +164,7 @@
                         <td>{{ metrics.precision }}</td>
                         <td>{{ metrics.recall }}</td>
                         <td>{{ metrics.f1 }}</td>
+                        <td>{{ metrics.support if metrics.support is defined else '—' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -228,7 +235,8 @@
         <thead>
             <tr>
                 <th>Aspect</th>
-                <th>Samples</th>
+                <th>Total Aspect Samples</th>
+                <th>Held-out Test n</th>
                 <th>SVM Test Acc</th>
                 <th>SVM Test F1</th>
                 <th>SVM Val F1</th>
@@ -243,6 +251,7 @@
             <tr>
                 <td><strong>{{ row.get('Aspect') }}</strong></td>
                 <td>{{ row.get('Samples') }}</td>
+                <td>{{ row.get('Test_Samples', '—') }}</td>
                 <td>{{ row.get('SVM_Acc') }}</td>
                 <td>{{ row.get('SVM_Macro_F1') }}</td>
                 <td>{{ row.get('SVM_Val_Macro_F1', '—') }}</td>
