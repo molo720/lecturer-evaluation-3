@@ -123,6 +123,16 @@ def analysis_from_row(row):
         try:
             stored = json.loads(raw)
             if isinstance(stored, dict) and stored.get('analysis_version') == 2:
+                # Canonical aspect label was shortened to "Punctuality".
+                # Normalize existing cached v2 analysis records in memory and
+                # persist the normalized JSON through the existing update path.
+                migrated_label = False
+                for item in stored.get('aspects', []):
+                    if item.get('aspect') == 'Lecturer Punctuality':
+                        item['aspect'] = 'Punctuality'
+                        migrated_label = True
+                if migrated_label:
+                    return stored, True
                 return stored, False
         except (TypeError, ValueError):
             pass
