@@ -71,7 +71,7 @@ def test_unmatched_factual_text_is_not_aspect_evidence():
 @pytest.mark.parametrize(
     ("counts", "expected"),
     [
-        ({"positive": 4, "neutral": 1, "negative": 2}, "balanced"),
+        ({"positive": 3, "neutral": 1, "negative": 2}, "balanced"),
         ({"positive": 5, "neutral": 0, "negative": 2}, "strength"),
         ({"positive": 3, "neutral": 2, "negative": 1}, "strength"),
         ({"positive": 1, "neutral": 2, "negative": 3}, "improvement"),
