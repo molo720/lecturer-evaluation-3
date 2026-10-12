@@ -402,13 +402,19 @@ def admin_retrain():
     return redirect(url_for('model_evaluation'))
 
 @app.route('/admin/reseed-users', methods=['POST'])
+@login_required
+@admin_required
 def admin_reseed_users():
-    """Emergency route to reseed users if login fails. Protected by secret key."""
+    """Admin-only endpoint to reseed users. Requires secret key for security."""
     secret_key = request.form.get('secret_key', '')
-    expected_key = os.environ.get('RESEED_SECRET_KEY', 'reseed-emergency-2026')
+    expected_key = os.environ.get('RESEED_SECRET_KEY')
+    
+    # Secret key is required and must match environment variable
+    if not expected_key:
+        return {"status": "error", "message": "RESEED_SECRET_KEY not configured in environment"}, 500
     
     if secret_key != expected_key:
-        return "Invalid secret key", 403
+        return {"status": "error", "message": "Invalid secret key"}, 403
     
     try:
         from core.db import DEMO_USERS, generate_password_hash
@@ -427,9 +433,10 @@ def admin_reseed_users():
         db.commit()
         db.close()
         
-        return f"Users reseeded successfully! Default credentials: admin/admin123", 200
+        # Do NOT return default credentials in response
+        return {"status": "success", "message": "Users reseeded successfully"}, 200
     except Exception as e:
-        return f"Error: {str(e)}", 500
+        return {"status": "error", "message": str(e)}, 500
 
 @app.route('/lecturer/<lecturer_name>')
 @login_required
