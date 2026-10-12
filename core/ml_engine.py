@@ -143,6 +143,7 @@ ASPECT_STATUS_LABELS = {
     "strength": "Strength Area",
     "improvement": "Improvement Area",
     "balanced": "Balanced / Neutral",
+    "limited": "Limited evidence",
     "insufficient": "Insufficient evidence",
 }
 
@@ -264,16 +265,35 @@ def _signed_to_label(mean_score):
     return "neutral"
 
 
+MIN_POLARITY_MENTIONS = 3
+POLARITY_MARGIN = 2
+
+
 def classify_aspect_status(counts):
-    """Same decision rule as the lecturer-report aspect table."""
+    """
+    Conservative, deterministic report rule shared by the table and narrative.
+
+    No mentions -> insufficient evidence.
+    Fewer than three positive/negative mentions -> limited evidence unless all
+    observed mentions are neutral.
+    A strength/development priority requires at least three mentions of that
+    polarity and a net margin of at least two over the opposite polarity.
+    Ties and results below the decision threshold are not called strengths or
+    improvement areas.
+    """
     pos = int((counts or {}).get("positive", 0) or 0)
     neu = int((counts or {}).get("neutral", 0) or 0)
     neg = int((counts or {}).get("negative", 0) or 0)
+
     if pos + neu + neg == 0:
         return "insufficient"
-    if pos > neg:
+    if pos + neg == 0:
+        return "balanced"
+    if pos + neg < MIN_POLARITY_MENTIONS:
+        return "limited"
+    if pos >= MIN_POLARITY_MENTIONS and pos - neg >= POLARITY_MARGIN:
         return "strength"
-    if neg > pos:
+    if neg >= MIN_POLARITY_MENTIONS and neg - pos >= POLARITY_MARGIN:
         return "improvement"
     return "balanced"
 
@@ -390,11 +410,12 @@ def run_analysis(comment, rating=3):
     return dict(res)
 
 def generate_textual_summary(aspect_counts, overall_sentiment=None):
-    """Prose uses the same count rules as the aspect table (strength / improvement / balanced / insufficient)."""
+    """Generate prose from the same conservative status decisions used by the report table."""
     statuses = aspect_status_map(aspect_counts)
     strengths = [a for a, s in statuses.items() if s == "strength"]
     weaknesses = [a for a, s in statuses.items() if s == "improvement"]
     balanced = [a for a, s in statuses.items() if s == "balanced"]
+    limited = [a for a, s in statuses.items() if s == "limited"]
     insufficient = [a for a, s in statuses.items() if s == "insufficient"]
     evidenced = strengths + weaknesses + balanced
 
@@ -414,50 +435,62 @@ def generate_textual_summary(aspect_counts, overall_sentiment=None):
             "There is insufficient aspect-level evidence to characterise this lecturer's teaching profile."
         )
     elif overall_sentiment == "positive":
-        paragraphs.append("Overall sentiment towards this lecturer's pedagogical engagement is predominantly positive.")
+        paragraphs.append(
+            "Among aspects with enough evidence to classify, positive sentiment is more frequent than negative sentiment."
+        )
     elif overall_sentiment == "negative":
-        paragraphs.append("Student sentiment indicates targeted areas requiring institutional pedagogy and engagement review.")
+        paragraphs.append(
+            "Among aspects with enough evidence to classify, negative sentiment is more frequent; the flagged dimensions warrant review."
+        )
     else:
         paragraphs.append(
-            "Student evaluation comments reflect mixed or balanced evidence across aspects that were actually mentioned."
+            "The classifiable aspect evidence is mixed or balanced. Interpret counts alongside the underlying comments and ratings."
         )
 
     if strengths:
-        paragraphs.append(f"Core teaching strengths commended by students include: {', '.join(strengths)}.")
+        paragraphs.append(f"Dimensions meeting the positive-evidence threshold (Strength Area): {', '.join(strengths)}.")
     if weaknesses:
         paragraphs.append(
-            f"Identified developmental priorities for departmental improvement include: {', '.join(weaknesses)}."
+            f"Dimensions meeting the negative-evidence threshold (Improvement Area): {', '.join(weaknesses)}."
         )
-    elif evidenced:
-        paragraphs.append("No critical aspect-level deficiencies were highlighted across student submissions.")
-
     if balanced:
         paragraphs.append(
-            f"Aspects with equal positive and negative mention counts (Balanced / Neutral): {', '.join(balanced)}."
+            f"Dimensions without a clear positive/negative margin (Balanced / Neutral): {', '.join(balanced)}."
+        )
+    if limited:
+        paragraphs.append(
+            "Dimensions with too few positive/negative mentions for a directional label (Limited evidence): "
+            + ", ".join(limited) + "."
         )
     if insufficient:
         paragraphs.append(
-            "Aspects with no extracted mentions (Insufficient evidence, not Balanced / Neutral): "
+            "Dimensions with no extracted mentions (Insufficient evidence, not neutral sentiment): "
             + ", ".join(insufficient) + "."
         )
 
     recommendations = []
     if "Assessment and Grading" in weaknesses:
-        recommendations.append("Establish transparent grading rubrics and provide prompt script feedback to students.")
+        recommendations.append("Review grading transparency, rubrics, and the timeliness of feedback.")
     if "Lecturer Punctuality" in weaknesses:
-        recommendations.append("Prioritize timely lecture commencement and minimize rescheduled periods.")
+        recommendations.append("Review lecture start times, cancellations, and schedule communication.")
     if "Communication" in weaknesses:
-        recommendations.append("Enhance digital communication channels and ensure swift responses to academic student inquiries.")
+        recommendations.append("Review the clarity and timeliness of academic announcements and replies.")
     if "Teaching Clarity" in weaknesses:
-        recommendations.append("Adopt practical examples and interactive explanations to clarify complex curriculum concepts.")
+        recommendations.append("Review explanations and add worked examples for difficult concepts.")
     if "Use of Teaching Materials" in weaknesses:
-        recommendations.append("Upload modern lecture slides, readings, and supplementary materials in advance.")
+        recommendations.append("Review the availability, accuracy, and timeliness of course materials.")
 
-    if evidenced and not recommendations:
-        recommendations.append("Continue maintaining high standards of instructional quality and responsive student mentoring.")
-    elif not evidenced:
-        recommendations.append("Collect further student comments before issuing aspect-level developmental recommendations.")
+    if limited or insufficient:
+        more_data = sorted(set(limited + insufficient))
+        recommendations.append(
+            "Collect and review more comments before making directional judgements for: "
+            + ", ".join(more_data) + "."
+        )
+    if not recommendations:
+        recommendations.append(
+            "No aspect currently meets the rule for a specific development recommendation; review this summary with the source comments."
+        )
 
-    paragraphs.append("Actionable Next Steps: " + " ".join(recommendations))
+    paragraphs.append("Next steps: " + " ".join(recommendations))
     return " ".join(paragraphs)
 
