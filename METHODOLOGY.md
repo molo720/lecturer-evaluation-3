@@ -92,9 +92,60 @@ The script creates a separate controlled train/test corpus from the phrase banks
 - Sentiment given a known aspect is measured on held-out phrases with a separate aspect-specific SVM and Naive Bayes model. This assumes the aspect is already known.
 - End-to-end aspect-sentiment pair precision/recall/F1 requires the correct aspect and polarity in the same prediction.
 
-The script writes detailed output to \`artifacts/template_family_holdout_metrics.json\`. A GitHub Actions workflow runs the regression tests and benchmark and stores the JSON as a workflow artifact. Use the actual artifact output in the thesis; do not copy predicted or placeholder scores.
+The CI benchmark completed successfully on 12 October 2026. It wrote `artifacts/template_family_holdout_metrics.json` and uploaded it as workflow artifact `template-family-holdout-metrics`. The recorded run used 95 unique training templates, 30 held-out templates, 8,000 generated training comments, and 2,000 generated test comments; the exact normalized phrase-overlap check found zero templates shared between banks.
 
-This diagnostic is stronger than a random row split for exact phrase leakage, but it is still synthetic. The test phrases share the project's authored aspect vocabulary and lexicon. It does not demonstrate transfer to independently written student feedback, and its generator-assigned labels are not human annotations.
+### Executed document-level results on held-out templates
+
+| Model | Accuracy | Macro precision | Macro recall | Macro-F1 | Weighted-F1 |
+|---|---:|---:|---:|---:|---:|
+| Linear SVM | 0.2890 | 0.2928 | 0.3046 | 0.2736 | 0.2685 |
+| Multinomial Naive Bayes | 0.3145 | 0.3127 | 0.3168 | 0.3129 | 0.3128 |
+| Training-majority baseline on held-out test | 0.3680 | — | — | — | — |
+
+Class order for the matrices is positive, neutral, negative; rows are actual and columns are predicted.
+
+- Linear SVM confusion matrix: `[[193, 417, 126], [166, 299, 101], [219, 393, 86]]`.
+- Multinomial Naive Bayes confusion matrix: `[[180, 291, 265], [173, 187, 206], [244, 192, 262]]`.
+
+Per-class metrics:
+
+| Model | Class | Precision | Recall | F1 | Support |
+|---|---|---:|---:|---:|---:|
+| SVM | Positive | 0.3339 | 0.2622 | 0.2938 | 736 |
+| SVM | Neutral | 0.2696 | 0.5283 | 0.3570 | 566 |
+| SVM | Negative | 0.2748 | 0.1232 | 0.1701 | 698 |
+| Naive Bayes | Positive | 0.3015 | 0.2446 | 0.2701 | 736 |
+| Naive Bayes | Neutral | 0.2791 | 0.3304 | 0.3026 | 566 |
+| Naive Bayes | Negative | 0.3574 | 0.3754 | 0.3662 | 698 |
+
+The models score below the held-out majority baseline (0.3680), showing weak generalisation to unseen authored phrase templates.
+
+### Aspect identification (separate task)
+
+Micro precision = **0.9061**, recall = **0.5749**, F1 = **0.7035** (TP=2,306, FP=239, FN=1,705; 4,011 generator-labelled aspect mentions).
+
+| Aspect | Precision | Recall | F1 | Gold support |
+|---|---:|---:|---:|---:|
+| Teaching Clarity | 1.0000 | 0.3588 | 0.5281 | 485 |
+| Course Organisation | 0.6766 | 1.0000 | 0.8071 | 500 |
+| Assessment and Grading | 1.0000 | 0.2050 | 0.3402 | 522 |
+| Lecturer Punctuality | 1.0000 | 0.4133 | 0.5849 | 496 |
+| Availability | 1.0000 | 0.1802 | 0.3053 | 494 |
+| Communication | 1.0000 | 1.0000 | 1.0000 | 510 |
+| Student Interaction | 1.0000 | 0.8359 | 0.9106 | 524 |
+| Use of Teaching Materials | 1.0000 | 0.5896 | 0.7418 | 480 |
+
+High precision with lower recall means the extractor misses many labelled aspects, especially Assessment and Grading, Availability, and Teaching Clarity. The perfect Communication result is specific to this small synthetic phrase bank, not evidence of real-world reliability.
+
+### End-to-end aspect–sentiment pairs
+
+Exact pair micro-precision = **0.8585**, recall = **0.5448**, F1 = **0.6666** (TP=2,185, FP=360, FN=1,826). A pair is correct only when both aspect and polarity match.
+
+### Sentiment given a known aspect
+
+On only 30 held-out phrase-template instances (11 positive, 8 neutral, 11 negative), the pooled aspect-specific SVM achieved accuracy **0.2333** and Macro-F1 **0.2267**; Naive Bayes achieved accuracy **0.2667** and Macro-F1 **0.2506**. This is a very small diagnostic, not a stable performance estimate.
+
+The benchmark remains a controlled synthetic test: exact phrase overlap is removed, but the test phrases share the project's authored aspect vocabulary and lexicon, and labels are generator-assigned. It does not demonstrate transfer to independently written student feedback. These low scores must be reported, not suppressed, and the existing random-split scores must not be presented as proof of robustness.
 
 ## 5. Aspect extraction and sentiment are separate tasks
 
