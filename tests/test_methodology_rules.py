@@ -11,7 +11,7 @@ EXPECTED_ASPECTS = [
     "Teaching Clarity",
     "Course Organisation",
     "Assessment and Grading",
-    "Lecturer Punctuality",
+    "Punctuality",
     "Availability",
     "Communication",
     "Student Interaction",
@@ -57,7 +57,7 @@ def test_summary_and_table_share_the_same_decision_rules():
     counts = {
         "Teaching Clarity": {"positive": 5, "neutral": 0, "negative": 1},
         "Assessment and Grading": {"positive": 1, "neutral": 0, "negative": 1},
-        "Lecturer Punctuality": {"positive": 5, "neutral": 0, "negative": 5},
+        "Punctuality": {"positive": 5, "neutral": 0, "negative": 5},
         "Course Organisation": {"positive": 3, "neutral": 2, "negative": 3},
         "Use of Teaching Materials": {"positive": 0, "neutral": 2, "negative": 1},
         "Communication": {"positive": 0, "neutral": 0, "negative": 0},
@@ -70,7 +70,7 @@ def test_summary_and_table_share_the_same_decision_rules():
     assert "Limited evidence" in summary
     assert "Balanced / Neutral" in summary
     assert "Assessment and Grading" in summary
-    assert "Lecturer Punctuality" in summary
+    assert "Punctuality" in summary
     assert "Course Organisation" in summary
     assert "Use of Teaching Materials" in summary
     assert "No critical aspect-level deficiencies" not in summary
@@ -80,7 +80,7 @@ def test_not_punctual_is_negative_for_the_punctuality_aspect():
     result = run_analysis("The lecturer is not punctual.", rating=3)
     punctuality = [
         aspect for aspect in result["aspects"]
-        if aspect["aspect"] == "Lecturer Punctuality"
+        if aspect["aspect"] == "Punctuality"
     ]
     assert punctuality, "The aspect matcher should identify Lecturer Punctuality"
     assert punctuality[0]["sentiment"] == "negative"
