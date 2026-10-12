@@ -226,6 +226,14 @@ CONNECTORS_AND = [
     " and ", ". Furthermore, ", ". Also, ", ". Additionally, ", "; moreover, "
 ]
 
+def choose_phrase_template(aspect, sentiment):
+    """Return a generated phrase and a stable ID for its source phrase-bank item."""
+    phrases = aspect_templates[aspect][sentiment]
+    phrase_index = random.randrange(len(phrases))
+    family_id = f"{aspect}::{sentiment}::{phrase_index}"
+    return phrases[phrase_index], family_id
+
+
 def generate_synthetic_dataset(num_samples=1800):
     """
     Generates a rich, domain-specific evaluation dataset covering:
@@ -266,11 +274,13 @@ def generate_synthetic_dataset(num_samples=1800):
         
         clauses = []
         clause_labels = []
+        template_family_ids = []
         
         if target_doc_sentiment == "neutral":
             # Mostly neutral statements
             for asp in selected_aspects:
-                phrase = random.choice(aspect_templates[asp]["neutral"])
+                phrase, template_family_id = choose_phrase_template(asp, "neutral")
+                template_family_ids.append(template_family_id)
                 clauses.append(phrase)
                 clause_labels.append((asp, "neutral"))
             comment_text = " ".join(clauses)
@@ -283,7 +293,8 @@ def generate_synthetic_dataset(num_samples=1800):
                     sent = random.choice(["neutral", "negative"])
                 else:
                     sent = "positive"
-                phrase = random.choice(aspect_templates[asp][sent])
+                phrase, template_family_id = choose_phrase_template(asp, sent)
+                template_family_ids.append(template_family_id)
                 clauses.append(phrase)
                 clause_labels.append((asp, sent))
             
@@ -316,7 +327,8 @@ def generate_synthetic_dataset(num_samples=1800):
                     sent = random.choice(["neutral", "positive"])
                 else:
                     sent = "negative"
-                phrase = random.choice(aspect_templates[asp][sent])
+                phrase, template_family_id = choose_phrase_template(asp, sent)
+                template_family_ids.append(template_family_id)
                 clauses.append(phrase)
                 clause_labels.append((asp, sent))
             
@@ -351,7 +363,8 @@ def generate_synthetic_dataset(num_samples=1800):
             "rating": rating,
             "comment": comment_text,
             "document_sentiment": doc_sentiment,
-            "aspect_labels": json.dumps(clause_labels)
+            "aspect_labels": json.dumps(clause_labels),
+            "template_family_ids": json.dumps(template_family_ids)
         })
 
     df = pd.DataFrame(records)
