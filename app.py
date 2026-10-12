@@ -401,6 +401,36 @@ def admin_retrain():
         flash(f"Retraining error: {e}")
     return redirect(url_for('model_evaluation'))
 
+@app.route('/admin/reseed-users', methods=['POST'])
+def admin_reseed_users():
+    """Emergency route to reseed users if login fails. Protected by secret key."""
+    secret_key = request.form.get('secret_key', '')
+    expected_key = os.environ.get('RESEED_SECRET_KEY', 'reseed-emergency-2026')
+    
+    if secret_key != expected_key:
+        return "Invalid secret key", 403
+    
+    try:
+        from core.db import DEMO_USERS, generate_password_hash
+        db = get_db()
+        
+        # Delete existing users
+        db.execute('DELETE FROM users')
+        
+        # Re-insert default users
+        for username, password, role, lecturer_name, full_name in DEMO_USERS:
+            db.execute(
+                'INSERT INTO users (username, password_hash, role, lecturer_name, full_name) VALUES (?, ?, ?, ?, ?)',
+                (username, generate_password_hash(password), role, lecturer_name, full_name)
+            )
+        
+        db.commit()
+        db.close()
+        
+        return f"Users reseeded successfully! Default credentials: admin/admin123", 200
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+
 @app.route('/lecturer/<lecturer_name>')
 @login_required
 def lecturer_report(lecturer_name):
