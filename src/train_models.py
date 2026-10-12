@@ -510,7 +510,7 @@ def classify_metrics(y_true, y_pred, labels=("positive", "neutral", "negative"))
     cm = confusion_matrix(y_true, y_pred, labels=list(labels))
     
     # Per-class metrics
-    p_per_class, r_per_class, f1_per_class, _ = precision_recall_fscore_support(
+    p_per_class, r_per_class, f1_per_class, support_per_class = precision_recall_fscore_support(
         y_true, y_pred, labels=list(labels), average=None, zero_division=0
     )
     
@@ -520,6 +520,7 @@ def classify_metrics(y_true, y_pred, labels=("positive", "neutral", "negative"))
             "precision": round(p_per_class[i], 4),
             "recall": round(r_per_class[i], 4),
             "f1": round(f1_per_class[i], 4),
+            "support": int(support_per_class[i]),
         }
     
     return {
@@ -775,15 +776,18 @@ def main():
 
     metrics_data = {
         "dataset": {
-            "nigerian_records": int(len(nigerian_df)),
+            "nigerian_context_records": int(len(nigerian_df)),
+            "nigerian_records": int(len(nigerian_df)),  # legacy key for older UI consumers
             "synthetic_records": int(len(synthetic_df)),
             "slang_records": int(len(slang_df)) if not slang_df.empty else 0,
+            "real_institutional_records": 0,
             "total_records": int(len(df)),
             "train_size": int(len(X_train_d)),
             "validation_size": int(len(X_val_d)),
             "test_size": int(len(X_test_d)),
-            "split": "60% train / 20% validation / 20% test",
-            "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels; slang/sarcasm gold labels",
+            "split": "Random stratified 60% train / 20% validation / 20% test; phrase-family holdout is a separate experiment",
+            "corpus_scope_note": "The 10,000 Nigerian-context comments are described in the manuscript as LLM-generated. All records in this experiment are synthetic or engineered, not authentic institutional student submissions.",
+            "document_label_source": "LLM-generated Nigerian-context records use rating-derived proxy labels (1-2 negative, 3 neutral, 4-5 positive); template and slang records use generator/dataset-assigned labels, not independent human annotation",
         },
         "document_level": {
             "majority_baseline_accuracy": round(dummy_acc, 4),
