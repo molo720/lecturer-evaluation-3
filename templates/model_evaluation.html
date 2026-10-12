@@ -59,13 +59,21 @@
 <div class="card">
     <h3 style="margin-bottom: 14px; color:#0f172a;">Training data and split</h3>
     <p style="font-size:13px; color:#64748b; margin-bottom:8px;">
-        {{ ds.get('nigerian_records', '—') }} Nigerian evaluations + {{ ds.get('synthetic_records', '—') }} synthetic records
-        ({{ ds.get('total_records', '—') }} total). Split: {{ ds.get('split', '—') }}.
+        {{ ds.get('primary_records_label', 'Primary CSV records') }}: {{ ds.get('nigerian_records', '—') }}
+        + controlled-template records: {{ ds.get('synthetic_records', '—') }}
+        + slang/informal-text records: {{ ds.get('slang_records', '—') }}
+        = {{ ds.get('total_records', '—') }} records in the reported corpus.
+        Split: {{ ds.get('split', '—') }}.
     </p>
     <p style="font-size:13px; color:#64748b;">
         Train {{ ds.get('train_size', '—') }} · Validation {{ ds.get('validation_size', '—') }} · Test {{ ds.get('test_size', '—') }}.
         Document labels: {{ ds.get('document_label_source', '—') }}
     </p>
+    {% if ds.get('provenance_note') %}
+    <p style="font-size:12px; color:#92400e; background:#fffbeb; border-left:3px solid #d97706; padding:10px 12px; margin-top:12px;">
+        <strong>Evidence boundary:</strong> {{ ds.get('provenance_note') }}
+    </p>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -149,6 +157,7 @@
                         <th>Precision</th>
                         <th>Recall</th>
                         <th>F1</th>
+                        <th>Support</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -158,6 +167,7 @@
                         <td>{{ metrics.precision }}</td>
                         <td>{{ metrics.recall }}</td>
                         <td>{{ metrics.f1 }}</td>
+                        <td>{{ metrics.support }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -203,6 +213,7 @@
                         <th>Precision</th>
                         <th>Recall</th>
                         <th>F1</th>
+                        <th>Support</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -212,6 +223,7 @@
                         <td>{{ metrics.precision }}</td>
                         <td>{{ metrics.recall }}</td>
                         <td>{{ metrics.f1 }}</td>
+                        <td>{{ metrics.support }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -228,7 +240,7 @@
         <thead>
             <tr>
                 <th>Aspect</th>
-                <th>Samples</th>
+                <th>Aspect records (all splits)</th>
                 <th>SVM Test Acc</th>
                 <th>SVM Test F1</th>
                 <th>SVM Val F1</th>
