@@ -129,7 +129,7 @@ Micro precision = **0.9061**, recall = **0.5749**, F1 = **0.7035** (TP=2,306, FP
 | Teaching Clarity | 1.0000 | 0.3588 | 0.5281 | 485 |
 | Course Organisation | 0.6766 | 1.0000 | 0.8071 | 500 |
 | Assessment and Grading | 1.0000 | 0.2050 | 0.3402 | 522 |
-| Lecturer Punctuality | 1.0000 | 0.4133 | 0.5849 | 496 |
+| Punctuality | 1.0000 | 0.4133 | 0.5849 | 496 |
 | Availability | 1.0000 | 0.1802 | 0.3053 | 494 |
 | Communication | 1.0000 | 1.0000 | 1.0000 | 510 |
 | Student Interaction | 1.0000 | 0.8359 | 0.9106 | 524 |
