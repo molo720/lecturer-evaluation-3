@@ -68,14 +68,59 @@ def load_all_models():
             print(f"[WARNING] Aspect model files not found for {aspect}: {svm_path}, {vec_path}")
     print(f"[INFO] Loaded {len(aspect_models)} aspect-specific models out of {len(ASPECTS)} total.")
 
+# Strong sentiment keywords for document-level fallback
+STRONG_NEGATIVE_KEYWORDS = [
+    "terrible", "awful", "worst", "rubbish", "horrible", "disgusting",
+    "hate", "hated", "despise", "loathe", "abysmal", "atrocious",
+    "dreadful", "appalling", "shocking", "outrageous", "pathetic",
+    "useless", "worthless", "garbage", "trash", "crap", "shit",
+    "sucks", "suck", "stinks", "stink", "lousy", "crappy",
+    "not good", "not great", "not well", "not effective", "not helpful",
+    "bad", "poor", "substandard", "inadequate", "unsatisfactory"
+]
+
+STRONG_POSITIVE_KEYWORDS = [
+    "excellent", "amazing", "awesome", "fantastic", "wonderful",
+    "brilliant", "outstanding", "superb", "magnificent", "phenomenal",
+    "incredible", "exceptional", "remarkable", "splendid", "fabulous",
+    "love", "loved", "adore", "great", "best", "perfect",
+    "good", "well", "effective", "helpful", "impressive", "recommend"
+]
+
 def predict_document_sentiment(cleaned_text):
-    """Predicts overall document sentiment using the trained Linear SVM."""
+    """Predicts overall document sentiment using the trained Linear SVM with keyword fallback."""
+    text_lower = cleaned_text.lower()
+    
+    # First try ML model
     if svm_doc_model and doc_vectorizer:
         try:
             vec = doc_vectorizer.transform([cleaned_text])
-            return svm_doc_model.predict(vec)[0]
+            ml_prediction = svm_doc_model.predict(vec)[0]
+            
+            # If ML predicts neutral, check for strong sentiment keywords
+            if ml_prediction == "neutral":
+                # Check for strong negative keywords (multi-word first)
+                for kw in sorted(STRONG_NEGATIVE_KEYWORDS, key=len, reverse=True):
+                    if kw in text_lower:
+                        return "negative"
+                
+                # Check for strong positive keywords (multi-word first)
+                for kw in sorted(STRONG_POSITIVE_KEYWORDS, key=len, reverse=True):
+                    if kw in text_lower:
+                        return "positive"
+            
+            return ml_prediction
         except Exception:
             pass
+    
+    # Fallback: check keywords (multi-word first for better matching)
+    for kw in sorted(STRONG_NEGATIVE_KEYWORDS, key=len, reverse=True):
+        if kw in text_lower:
+            return "negative"
+    for kw in sorted(STRONG_POSITIVE_KEYWORDS, key=len, reverse=True):
+        if kw in text_lower:
+            return "positive"
+    
     return "neutral"
 
 def predict_aspect_sentiment(aspect_name, clause_text):
@@ -305,18 +350,22 @@ def run_analysis_cached(comment_text, rating_val):
     active_scores = [a["score"] for a in aspect_results]
     overall_cs = compute_composite(rating_val, active_scores)
 
-    if not aspect_results:
-        doc_sentiment = UNCLASSIFIED
-        evidence_status = INSUFFICIENT
-    else:
+    # Document-level sentiment is independent of aspect detection
+    # Always predict document sentiment from full comment
+    doc_sentiment = predict_document_sentiment(preprocessed_full)
+    
+    # Adjust based on aspect sentiment if aspects were found
+    if aspect_results:
         evidence_status = "ok"
         sentiment_cs = sum(active_scores) / len(active_scores)
-        doc_sentiment = predict_document_sentiment(preprocessed_full)
         if doc_sentiment == "neutral":
             if sentiment_cs > 0.1:
                 doc_sentiment = "positive"
             elif sentiment_cs < -0.1:
                 doc_sentiment = "negative"
+    else:
+        # No aspects found, but document sentiment still applies
+        evidence_status = INSUFFICIENT
 
     return {
         "comment": comment_text,

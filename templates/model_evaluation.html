@@ -127,10 +127,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for i, label in enumerate(svm.get('classes', [])) %}
+                    {% set cm = svm.get('confusion_matrix', []) %}
+                    {% for row in cm %}
                     <tr>
-                        <th>{{ label|capitalize }}</th>
-                        {% for val in svm.get('confusion_matrix', [])[i] %}
+                        <th>{{ svm.get('classes', [])[loop.index0]|capitalize }}</th>
+                        {% for val in row %}
                         <td>{{ val }}</td>
                         {% endfor %}
                     </tr>
@@ -180,10 +181,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for i, label in enumerate(nb.get('classes', [])) %}
+                    {% set cm = nb.get('confusion_matrix', []) %}
+                    {% for row in cm %}
                     <tr>
-                        <th>{{ label|capitalize }}</th>
-                        {% for val in nb.get('confusion_matrix', [])[i] %}
+                        <th>{{ nb.get('classes', [])[loop.index0]|capitalize }}</th>
+                        {% for val in row %}
                         <td>{{ val }}</td>
                         {% endfor %}
                     </tr>
