@@ -8,7 +8,9 @@
     "validation_size": 2720,
     "test_size": 2720,
     "split": "60% train / 20% validation / 20% test",
-    "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels; slang/sarcasm gold labels"
+    "document_label_source": "Primary CSV labels mapped from ratings (1-2 negative, 3 neutral, 4-5 positive; proxy labels); controlled template labels assigned by the generator; slang corpus labels supplied in the dataset, with independent human annotation not verified.",
+    "primary_records_label": "Primary CSV records (source provenance not independently verified)",
+    "provenance_note": "The repository contains a primary 10,000-row CSV and generated/supplementary corpora, but the files inspected do not establish the primary CSV's original collection, permission, or annotation provenance. Until documentary evidence is attached, describe its labels as rating-derived proxy labels where applicable and do not claim verified institutional origin or independent human annotation. Counts describe records in the training corpus, not live database evaluations."
   },
   "document_level": {
     "majority_baseline_accuracy": 0.4441,
@@ -40,10 +42,30 @@
         "neutral",
         "negative"
       ],
-      "selected_C": 1.0,
+      "selected_C": 1,
       "validation_macro_f1": 0.6871,
       "cv_macro_f1_mean": 0.6907,
-      "cv_macro_f1_std": 0.0066
+      "cv_macro_f1_std": 0.0066,
+      "per_class_metrics": {
+        "positive": {
+          "precision": 0.7692,
+          "recall": 0.9563,
+          "f1": 0.8526,
+          "support": 892
+        },
+        "neutral": {
+          "precision": 0.7089,
+          "recall": 0.1806,
+          "f1": 0.2879,
+          "support": 620
+        },
+        "negative": {
+          "precision": 0.8259,
+          "recall": 0.9934,
+          "f1": 0.9019,
+          "support": 1208
+        }
+      }
     },
     "naive_bayes": {
       "accuracy": 0.8015,
@@ -76,7 +98,27 @@
       "selected_alpha": 0.1,
       "validation_macro_f1": 0.6883,
       "cv_macro_f1_mean": 0.6849,
-      "cv_macro_f1_std": 0.0103
+      "cv_macro_f1_std": 0.0103,
+      "per_class_metrics": {
+        "positive": {
+          "precision": 0.7626,
+          "recall": 0.9865,
+          "f1": 0.8602,
+          "support": 892
+        },
+        "neutral": {
+          "precision": 0.839,
+          "recall": 0.1597,
+          "f1": 0.2683,
+          "support": 620
+        },
+        "negative": {
+          "precision": 0.8294,
+          "recall": 0.9942,
+          "f1": 0.9044,
+          "support": 1208
+        }
+      }
     }
   },
   "aspect_level": [
