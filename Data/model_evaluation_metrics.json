@@ -7,8 +7,11 @@
     "train_size": 8160,
     "validation_size": 2720,
     "test_size": 2720,
-    "split": "60% train / 20% validation / 20% test",
-    "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels; slang/sarcasm gold labels"
+    "split": "Random stratified 60% train / 20% validation / 20% test; phrase-template holdout is a separate experiment",
+    "document_label_source": "LLM-generated Nigerian-context comments use rating-derived proxy labels (1–2 negative, 3 neutral, 4–5 positive); template and slang records use generator/dataset-assigned labels, not independent human annotation.",
+    "nigerian_context_records": 10000,
+    "real_institutional_records": 0,
+    "corpus_scope_note": "The 10,000 Nigerian-context comments are described in the project manuscript as Gemini/LLM-generated. All 13,600 records are synthetic or engineered; no authentic institutional student submissions are included in this experiment."
   },
   "document_level": {
     "majority_baseline_accuracy": 0.4441,
@@ -40,10 +43,31 @@
         "neutral",
         "negative"
       ],
-      "selected_C": 1.0,
+      "selected_C": 1,
       "validation_macro_f1": 0.6871,
       "cv_macro_f1_mean": 0.6907,
-      "cv_macro_f1_std": 0.0066
+      "cv_macro_f1_std": 0.0066,
+      "per_class_metrics": {
+        "positive": {
+          "precision": 0.7692,
+          "recall": 0.9563,
+          "f1": 0.8526,
+          "support": 892
+        },
+        "neutral": {
+          "precision": 0.7089,
+          "recall": 0.1806,
+          "f1": 0.2879,
+          "support": 620
+        },
+        "negative": {
+          "precision": 0.8259,
+          "recall": 0.9934,
+          "f1": 0.9019,
+          "support": 1208
+        }
+      },
+      "test_support": 2720
     },
     "naive_bayes": {
       "accuracy": 0.8015,
@@ -76,7 +100,28 @@
       "selected_alpha": 0.1,
       "validation_macro_f1": 0.6883,
       "cv_macro_f1_mean": 0.6849,
-      "cv_macro_f1_std": 0.0103
+      "cv_macro_f1_std": 0.0103,
+      "per_class_metrics": {
+        "positive": {
+          "precision": 0.7626,
+          "recall": 0.9865,
+          "f1": 0.8602,
+          "support": 892
+        },
+        "neutral": {
+          "precision": 0.839,
+          "recall": 0.1597,
+          "f1": 0.2683,
+          "support": 620
+        },
+        "negative": {
+          "precision": 0.8294,
+          "recall": 0.9942,
+          "f1": 0.9044,
+          "support": 1208
+        }
+      },
+      "test_support": 2720
     }
   },
   "aspect_level": [
@@ -125,7 +170,53 @@
           166
         ]
       ],
-      "Best_Model": "SVM"
+      "Best_Model": "SVM",
+      "Classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "Test_Samples": 512,
+      "SVM_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8441,
+          "recall": 0.9737,
+          "f1": 0.9043,
+          "support": 228
+        },
+        "neutral": {
+          "precision": 0.5652,
+          "recall": 0.2222,
+          "f1": 0.319,
+          "support": 117
+        },
+        "positive": {
+          "precision": 0.7537,
+          "recall": 0.9162,
+          "f1": 0.827,
+          "support": 167
+        }
+      },
+      "NB_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8339,
+          "recall": 0.9912,
+          "f1": 0.9058,
+          "support": 228
+        },
+        "neutral": {
+          "precision": 0.95,
+          "recall": 0.1624,
+          "f1": 0.2774,
+          "support": 117
+        },
+        "positive": {
+          "precision": 0.7511,
+          "recall": 0.994,
+          "f1": 0.8557,
+          "support": 167
+        }
+      }
     },
     {
       "Aspect": "Course Organisation",
@@ -172,7 +263,53 @@
           175
         ]
       ],
-      "Best_Model": "SVM"
+      "Best_Model": "SVM",
+      "Classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "Test_Samples": 524,
+      "SVM_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8587,
+          "recall": 0.9706,
+          "f1": 0.9112,
+          "support": 238
+        },
+        "neutral": {
+          "precision": 0.7805,
+          "recall": 0.2909,
+          "f1": 0.4238,
+          "support": 110
+        },
+        "positive": {
+          "precision": 0.8131,
+          "recall": 0.9886,
+          "f1": 0.8923,
+          "support": 176
+        }
+      },
+      "NB_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8561,
+          "recall": 0.9748,
+          "f1": 0.9116,
+          "support": 238
+        },
+        "neutral": {
+          "precision": 0.8065,
+          "recall": 0.2273,
+          "f1": 0.3546,
+          "support": 110
+        },
+        "positive": {
+          "precision": 0.7883,
+          "recall": 0.9943,
+          "f1": 0.8794,
+          "support": 176
+        }
+      }
     },
     {
       "Aspect": "Assessment and Grading",
@@ -219,7 +356,53 @@
           167
         ]
       ],
-      "Best_Model": "SVM"
+      "Best_Model": "SVM",
+      "Classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "Test_Samples": 504,
+      "SVM_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8538,
+          "recall": 0.9652,
+          "f1": 0.9061,
+          "support": 230
+        },
+        "neutral": {
+          "precision": 0.625,
+          "recall": 0.2358,
+          "f1": 0.3425,
+          "support": 106
+        },
+        "positive": {
+          "precision": 0.7892,
+          "recall": 0.9583,
+          "f1": 0.8656,
+          "support": 168
+        }
+      },
+      "NB_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8413,
+          "recall": 0.9913,
+          "f1": 0.9102,
+          "support": 230
+        },
+        "neutral": {
+          "precision": 0.8947,
+          "recall": 0.1604,
+          "f1": 0.272,
+          "support": 106
+        },
+        "positive": {
+          "precision": 0.7804,
+          "recall": 0.994,
+          "f1": 0.8743,
+          "support": 168
+        }
+      }
     },
     {
       "Aspect": "Lecturer Punctuality",
@@ -266,7 +449,53 @@
           164
         ]
       ],
-      "Best_Model": "SVM"
+      "Best_Model": "SVM",
+      "Classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "Test_Samples": 505,
+      "SVM_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8235,
+          "recall": 0.9868,
+          "f1": 0.8978,
+          "support": 227
+        },
+        "neutral": {
+          "precision": 0.625,
+          "recall": 0.1802,
+          "f1": 0.2797,
+          "support": 111
+        },
+        "positive": {
+          "precision": 0.7861,
+          "recall": 0.9461,
+          "f1": 0.8587,
+          "support": 167
+        }
+      },
+      "NB_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8216,
+          "recall": 0.9736,
+          "f1": 0.8911,
+          "support": 227
+        },
+        "neutral": {
+          "precision": 0.6667,
+          "recall": 0.1622,
+          "f1": 0.2609,
+          "support": 111
+        },
+        "positive": {
+          "precision": 0.7847,
+          "recall": 0.982,
+          "f1": 0.8723,
+          "support": 167
+        }
+      }
     },
     {
       "Aspect": "Availability",
@@ -313,7 +542,53 @@
           161
         ]
       ],
-      "Best_Model": "SVM"
+      "Best_Model": "SVM",
+      "Classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "Test_Samples": 525,
+      "SVM_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8464,
+          "recall": 0.996,
+          "f1": 0.9151,
+          "support": 249
+        },
+        "neutral": {
+          "precision": 0.9118,
+          "recall": 0.2719,
+          "f1": 0.4189,
+          "support": 114
+        },
+        "positive": {
+          "precision": 0.8081,
+          "recall": 0.9877,
+          "f1": 0.8889,
+          "support": 162
+        }
+      },
+      "NB_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8401,
+          "recall": 0.992,
+          "f1": 0.9098,
+          "support": 249
+        },
+        "neutral": {
+          "precision": 0.9655,
+          "recall": 0.2456,
+          "f1": 0.3916,
+          "support": 114
+        },
+        "positive": {
+          "precision": 0.797,
+          "recall": 0.9938,
+          "f1": 0.8846,
+          "support": 162
+        }
+      }
     },
     {
       "Aspect": "Communication",
@@ -360,7 +635,53 @@
           231
         ]
       ],
-      "Best_Model": "Naive Bayes"
+      "Best_Model": "Naive Bayes",
+      "Classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "Test_Samples": 710,
+      "SVM_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8105,
+          "recall": 0.9904,
+          "f1": 0.8915,
+          "support": 311
+        },
+        "neutral": {
+          "precision": 0.623,
+          "recall": 0.2262,
+          "f1": 0.3319,
+          "support": 168
+        },
+        "positive": {
+          "precision": 0.7844,
+          "recall": 0.9134,
+          "f1": 0.844,
+          "support": 231
+        }
+      },
+      "NB_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8047,
+          "recall": 0.9936,
+          "f1": 0.8892,
+          "support": 311
+        },
+        "neutral": {
+          "precision": 1,
+          "recall": 0.1786,
+          "f1": 0.303,
+          "support": 168
+        },
+        "positive": {
+          "precision": 0.7804,
+          "recall": 1,
+          "f1": 0.8767,
+          "support": 231
+        }
+      }
     },
     {
       "Aspect": "Student Interaction",
@@ -407,7 +728,53 @@
           226
         ]
       ],
-      "Best_Model": "SVM"
+      "Best_Model": "SVM",
+      "Classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "Test_Samples": 703,
+      "SVM_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8242,
+          "recall": 0.9585,
+          "f1": 0.8863,
+          "support": 313
+        },
+        "neutral": {
+          "precision": 0.5714,
+          "recall": 0.2683,
+          "f1": 0.3651,
+          "support": 164
+        },
+        "positive": {
+          "precision": 0.7863,
+          "recall": 0.9115,
+          "f1": 0.8443,
+          "support": 226
+        }
+      },
+      "NB_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.8232,
+          "recall": 0.9968,
+          "f1": 0.9017,
+          "support": 313
+        },
+        "neutral": {
+          "precision": 1,
+          "recall": 0.1646,
+          "f1": 0.2827,
+          "support": 164
+        },
+        "positive": {
+          "precision": 0.7609,
+          "recall": 1,
+          "f1": 0.8642,
+          "support": 226
+        }
+      }
     },
     {
       "Aspect": "Use of Teaching Materials",
@@ -454,7 +821,53 @@
           141
         ]
       ],
-      "Best_Model": "Naive Bayes"
+      "Best_Model": "Naive Bayes",
+      "Classes": [
+        "negative",
+        "neutral",
+        "positive"
+      ],
+      "Test_Samples": 425,
+      "SVM_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.84,
+          "recall": 0.9895,
+          "f1": 0.9087,
+          "support": 191
+        },
+        "neutral": {
+          "precision": 0.8125,
+          "recall": 0.2826,
+          "f1": 0.4194,
+          "support": 92
+        },
+        "positive": {
+          "precision": 0.8214,
+          "recall": 0.9718,
+          "f1": 0.8903,
+          "support": 142
+        }
+      },
+      "NB_Per_Class_Metrics": {
+        "negative": {
+          "precision": 0.84,
+          "recall": 0.9895,
+          "f1": 0.9087,
+          "support": 191
+        },
+        "neutral": {
+          "precision": 0.9259,
+          "recall": 0.2717,
+          "f1": 0.4202,
+          "support": 92
+        },
+        "positive": {
+          "precision": 0.815,
+          "recall": 0.993,
+          "f1": 0.8952,
+          "support": 142
+        }
+      }
     }
   ],
   "runtime": {
