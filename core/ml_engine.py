@@ -471,7 +471,7 @@ def generate_textual_summary(aspect_counts, overall_sentiment=None):
     recommendations = []
     if "Assessment and Grading" in weaknesses:
         recommendations.append("Review grading transparency, rubrics, and the timeliness of feedback.")
-    if "Lecturer Punctuality" in weaknesses:
+    if "Punctuality" in weaknesses:
         recommendations.append("Review lecture start times, cancellations, and schedule communication.")
     if "Communication" in weaknesses:
         recommendations.append("Review the clarity and timeliness of academic announcements and replies.")
