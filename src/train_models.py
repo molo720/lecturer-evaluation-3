@@ -107,7 +107,7 @@ aspect_templates = {
             "Marks were computed according to normal university regulations."
         ]
     },
-    "Lecturer Punctuality": {
+    "Punctuality": {
         "positive": [
             "Always punctual and starts every class right on time.",
             "Consistently arrives early and utilizes the full lecture period.",
@@ -370,7 +370,7 @@ ASPECT_NAME_MAP = {
     "course organisation": "Course Organisation",
     "course organization": "Course Organisation",
     "assessment and grading": "Assessment and Grading",
-    "lecturer punctuality": "Lecturer Punctuality",
+    "lecturer punctuality": "Punctuality",
     "availability": "Availability",
     "communication": "Communication",
     "student interaction": "Student Interaction",

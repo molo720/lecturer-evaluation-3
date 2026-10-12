@@ -207,6 +207,8 @@
                         <span class="badge" style="background: #fee2e2; color: #b91c1c;">{{ data.aspect_status_labels.improvement }}</span>
                     {% elif status == 'balanced' %}
                         <span class="badge" style="background: #f1f5f9; color: #475569;">{{ data.aspect_status_labels.balanced }}</span>
+                    {% elif status == 'limited' %}
+                        <span class="badge" style="background: #fef3c7; color: #92400e;">{{ data.aspect_status_labels.limited }}</span>
                     {% else %}
                         <span class="badge" style="background: #fef9c3; color: #854d0e;">{{ data.aspect_status_labels.insufficient }}</span>
                     {% endif %}

@@ -8,7 +8,9 @@
     "validation_size": 2720,
     "test_size": 2720,
     "split": "60% train / 20% validation / 20% test",
-    "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels; slang/sarcasm gold labels"
+    "document_label_source": "Primary CSV labels mapped from ratings (1-2 negative, 3 neutral, 4-5 positive; proxy labels); controlled template labels assigned by the generator; slang corpus labels supplied in the dataset, with independent human annotation not verified.",
+    "primary_records_label": "Primary CSV records (source provenance not independently verified)",
+    "provenance_note": "The repository contains a primary 10,000-row CSV and generated/supplementary corpora, but the files inspected do not establish the primary CSV's original collection, permission, or annotation provenance. Until documentary evidence is attached, describe its labels as rating-derived proxy labels where applicable and do not claim verified institutional origin or independent human annotation. Counts describe records in the training corpus, not live database evaluations."
   },
   "document_level": {
     "majority_baseline_accuracy": 0.4441,
@@ -40,10 +42,30 @@
         "neutral",
         "negative"
       ],
-      "selected_C": 1.0,
+      "selected_C": 1,
       "validation_macro_f1": 0.6871,
       "cv_macro_f1_mean": 0.6907,
-      "cv_macro_f1_std": 0.0066
+      "cv_macro_f1_std": 0.0066,
+      "per_class_metrics": {
+        "positive": {
+          "precision": 0.7692,
+          "recall": 0.9563,
+          "f1": 0.8526,
+          "support": 892
+        },
+        "neutral": {
+          "precision": 0.7089,
+          "recall": 0.1806,
+          "f1": 0.2879,
+          "support": 620
+        },
+        "negative": {
+          "precision": 0.8259,
+          "recall": 0.9934,
+          "f1": 0.9019,
+          "support": 1208
+        }
+      }
     },
     "naive_bayes": {
       "accuracy": 0.8015,
@@ -76,7 +98,27 @@
       "selected_alpha": 0.1,
       "validation_macro_f1": 0.6883,
       "cv_macro_f1_mean": 0.6849,
-      "cv_macro_f1_std": 0.0103
+      "cv_macro_f1_std": 0.0103,
+      "per_class_metrics": {
+        "positive": {
+          "precision": 0.7626,
+          "recall": 0.9865,
+          "f1": 0.8602,
+          "support": 892
+        },
+        "neutral": {
+          "precision": 0.839,
+          "recall": 0.1597,
+          "f1": 0.2683,
+          "support": 620
+        },
+        "negative": {
+          "precision": 0.8294,
+          "recall": 0.9942,
+          "f1": 0.9044,
+          "support": 1208
+        }
+      }
     }
   },
   "aspect_level": [
@@ -222,7 +264,7 @@
       "Best_Model": "SVM"
     },
     {
-      "Aspect": "Lecturer Punctuality",
+      "Aspect": "Punctuality",
       "Samples": 2525,
       "SVM_Acc": 0.796,
       "SVM_Macro_F1": 0.6787,
@@ -461,5 +503,272 @@
     "total_seconds": 63.12,
     "total_minutes": 1.05,
     "hardware": "Local training on development machine"
+  },
+  "template_family_holdout": {
+    "status": "executed",
+    "seed": 42,
+    "train_unique_templates": 95,
+    "test_unique_templates": 30,
+    "exact_template_overlap": 0,
+    "train_documents": 8000,
+    "test_documents": 2000,
+    "runtime_seconds": 93.454,
+    "document_level": {
+      "svm": {
+        "accuracy": 0.289,
+        "macro_f1": 0.2736,
+        "weighted_f1": 0.2685,
+        "macro_precision": 0.2928,
+        "macro_recall": 0.3046,
+        "classes": [
+          "positive",
+          "neutral",
+          "negative"
+        ],
+        "support_by_class": {
+          "positive": 736,
+          "neutral": 566,
+          "negative": 698
+        },
+        "confusion_matrix": [
+          [
+            193,
+            417,
+            126
+          ],
+          [
+            166,
+            299,
+            101
+          ],
+          [
+            219,
+            393,
+            86
+          ]
+        ],
+        "per_class_metrics": {
+          "positive": {
+            "precision": 0.3339,
+            "recall": 0.2622,
+            "f1": 0.2938,
+            "support": 736
+          },
+          "neutral": {
+            "precision": 0.2696,
+            "recall": 0.5283,
+            "f1": 0.357,
+            "support": 566
+          },
+          "negative": {
+            "precision": 0.2748,
+            "recall": 0.1232,
+            "f1": 0.1701,
+            "support": 698
+          }
+        }
+      },
+      "naive_bayes": {
+        "accuracy": 0.3145,
+        "macro_f1": 0.3129,
+        "weighted_f1": 0.3128,
+        "macro_precision": 0.3127,
+        "macro_recall": 0.3168,
+        "classes": [
+          "positive",
+          "neutral",
+          "negative"
+        ],
+        "support_by_class": {
+          "positive": 736,
+          "neutral": 566,
+          "negative": 698
+        },
+        "confusion_matrix": [
+          [
+            180,
+            291,
+            265
+          ],
+          [
+            173,
+            187,
+            206
+          ],
+          [
+            244,
+            192,
+            262
+          ]
+        ],
+        "per_class_metrics": {
+          "positive": {
+            "precision": 0.3015,
+            "recall": 0.2446,
+            "f1": 0.2701,
+            "support": 736
+          },
+          "neutral": {
+            "precision": 0.2791,
+            "recall": 0.3304,
+            "f1": 0.3026,
+            "support": 566
+          },
+          "negative": {
+            "precision": 0.3574,
+            "recall": 0.3754,
+            "f1": 0.3662,
+            "support": 698
+          }
+        }
+      },
+      "baseline_train_majority_label": "positive",
+      "baseline_test_accuracy": 0.368,
+      "test_label_distribution": {
+        "positive": 736,
+        "neutral": 566,
+        "negative": 698
+      }
+    },
+    "aspect_extraction": {
+      "precision": 0.9061,
+      "recall": 0.5749,
+      "f1": 0.7035,
+      "true_positive": 2306,
+      "false_positive": 239,
+      "false_negative": 1705,
+      "gold_support": 4011,
+      "per_aspect": {
+        "Teaching Clarity": {
+          "precision": 1,
+          "recall": 0.3588,
+          "f1": 0.5281,
+          "true_positive": 174,
+          "false_positive": 0,
+          "false_negative": 311,
+          "gold_support_comments": 485
+        },
+        "Course Organisation": {
+          "precision": 0.6766,
+          "recall": 1,
+          "f1": 0.8071,
+          "true_positive": 500,
+          "false_positive": 239,
+          "false_negative": 0,
+          "gold_support_comments": 500
+        },
+        "Assessment and Grading": {
+          "precision": 1,
+          "recall": 0.205,
+          "f1": 0.3402,
+          "true_positive": 107,
+          "false_positive": 0,
+          "false_negative": 415,
+          "gold_support_comments": 522
+        },
+        "Punctuality": {
+          "precision": 1,
+          "recall": 0.4133,
+          "f1": 0.5849,
+          "true_positive": 205,
+          "false_positive": 0,
+          "false_negative": 291,
+          "gold_support_comments": 496
+        },
+        "Availability": {
+          "precision": 1,
+          "recall": 0.1802,
+          "f1": 0.3053,
+          "true_positive": 89,
+          "false_positive": 0,
+          "false_negative": 405,
+          "gold_support_comments": 494
+        },
+        "Communication": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "true_positive": 510,
+          "false_positive": 0,
+          "false_negative": 0,
+          "gold_support_comments": 510
+        },
+        "Student Interaction": {
+          "precision": 1,
+          "recall": 0.8359,
+          "f1": 0.9106,
+          "true_positive": 438,
+          "false_positive": 0,
+          "false_negative": 86,
+          "gold_support_comments": 524
+        },
+        "Use of Teaching Materials": {
+          "precision": 1,
+          "recall": 0.5896,
+          "f1": 0.7418,
+          "true_positive": 283,
+          "false_positive": 0,
+          "false_negative": 197,
+          "gold_support_comments": 480
+        }
+      }
+    },
+    "end_to_end_pairs": {
+      "precision": 0.8585,
+      "recall": 0.5448,
+      "f1": 0.6666,
+      "true_positive": 2185,
+      "false_positive": 360,
+      "false_negative": 1826
+    },
+    "known_aspect_sentiment": {
+      "heldout_templates": 30,
+      "support_by_class": {
+        "positive": 11,
+        "neutral": 8,
+        "negative": 11
+      },
+      "svm_accuracy": 0.2333,
+      "svm_macro_f1": 0.2267,
+      "svm_weighted_f1": 0.2293,
+      "svm_confusion_matrix": [
+        [
+          3,
+          0,
+          8
+        ],
+        [
+          4,
+          1,
+          3
+        ],
+        [
+          7,
+          1,
+          3
+        ]
+      ],
+      "naive_bayes_accuracy": 0.2667,
+      "naive_bayes_macro_f1": 0.2506,
+      "naive_bayes_weighted_f1": 0.2575,
+      "naive_bayes_confusion_matrix": [
+        [
+          4,
+          1,
+          6
+        ],
+        [
+          3,
+          1,
+          4
+        ],
+        [
+          7,
+          1,
+          3
+        ]
+      ]
+    },
+    "boundary": "All holdout labels are generator-assigned; exact authored phrase templates do not overlap across train/test, but topic vocabulary is shared. This is not evaluation on independently human-annotated institutional student comments."
   }
 }

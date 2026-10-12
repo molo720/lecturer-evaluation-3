@@ -4,7 +4,7 @@ ASPECTS = [
     "Teaching Clarity",
     "Course Organisation",
     "Assessment and Grading",
-    "Lecturer Punctuality",
+    "Punctuality",
     "Availability",
     "Communication",
     "Student Interaction",
@@ -68,7 +68,7 @@ ASPECT_KEYWORDS = {
         ],
         "neutral": ["standard grading", "normal scale", "two tests and one exam", "administered as scheduled"]
     },
-    "Lecturer Punctuality": {
+    "Punctuality": {
         "positive": [
             "punctual", "always on time", "arrives early", "regular attendance",
             "never misses", "utilizes full period", "prompt arrival", "starts on time",

@@ -1,0 +1,45 @@
+name: Methodology benchmarks
+
+on:
+  push:
+    branches:
+      - methodology/benchmark-summary-tests
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  regression-and-holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest numpy pandas scikit-learn nltk joblib
+
+      - name: Download required NLTK resources
+        run: python -m nltk.downloader stopwords punkt punkt_tab
+
+      - name: Run report and aspect regression tests
+        run: python -m pytest -q tests/test_methodology_rules.py
+
+      - name: Run template-family holdout benchmark
+        run: python src/evaluate_template_holdout.py
+
+      - name: Upload benchmark metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: template-family-holdout-metrics
+          path: artifacts/template_family_holdout_metrics.json
+          if-no-files-found: error
+          retention-days: 30

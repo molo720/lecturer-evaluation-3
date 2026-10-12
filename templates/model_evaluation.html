@@ -59,13 +59,21 @@
 <div class="card">
     <h3 style="margin-bottom: 14px; color:#0f172a;">Training data and split</h3>
     <p style="font-size:13px; color:#64748b; margin-bottom:8px;">
-        {{ ds.get('nigerian_records', '—') }} Nigerian evaluations + {{ ds.get('synthetic_records', '—') }} synthetic records
-        ({{ ds.get('total_records', '—') }} total). Split: {{ ds.get('split', '—') }}.
+        {{ ds.get('primary_records_label', 'Primary CSV records') }}: {{ ds.get('nigerian_records', '—') }}
+        + controlled-template records: {{ ds.get('synthetic_records', '—') }}
+        + slang/informal-text records: {{ ds.get('slang_records', '—') }}
+        = {{ ds.get('total_records', '—') }} records in the reported corpus.
+        Split: {{ ds.get('split', '—') }}.
     </p>
     <p style="font-size:13px; color:#64748b;">
         Train {{ ds.get('train_size', '—') }} · Validation {{ ds.get('validation_size', '—') }} · Test {{ ds.get('test_size', '—') }}.
         Document labels: {{ ds.get('document_label_source', '—') }}
     </p>
+    {% if ds.get('provenance_note') %}
+    <p style="font-size:12px; color:#92400e; background:#fffbeb; border-left:3px solid #d97706; padding:10px 12px; margin-top:12px;">
+        <strong>Evidence boundary:</strong> {{ ds.get('provenance_note') }}
+    </p>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -149,6 +157,7 @@
                         <th>Precision</th>
                         <th>Recall</th>
                         <th>F1</th>
+                        <th>Support</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -158,6 +167,7 @@
                         <td>{{ metrics.precision }}</td>
                         <td>{{ metrics.recall }}</td>
                         <td>{{ metrics.f1 }}</td>
+                        <td>{{ metrics.support }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -203,6 +213,7 @@
                         <th>Precision</th>
                         <th>Recall</th>
                         <th>F1</th>
+                        <th>Support</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -212,6 +223,7 @@
                         <td>{{ metrics.precision }}</td>
                         <td>{{ metrics.recall }}</td>
                         <td>{{ metrics.f1 }}</td>
+                        <td>{{ metrics.support }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -222,13 +234,61 @@
     {% endif %}
 </div>
 
+{% set holdout = metrics.get('template_family_holdout', {}) %}
+{% if holdout %}
+<div class="card">
+    <h3 style="margin-bottom: 8px; color:#0f172a;">Template-family holdout diagnostic</h3>
+    <p style="font-size:13px; color:#92400e; background:#fffbeb; border-left:3px solid #d97706; padding:10px 12px;">
+        This is a separate controlled synthetic benchmark, not a test on verified authentic student feedback. Each phrase template is assigned to one partition only; no exact template crosses the train/test boundary. Shared topic vocabulary and generator-assigned labels remain limitations.
+    </p>
+    <p style="font-size:13px; color:#64748b;">
+        Seed {{ holdout.get('seed', '—') }} · Training comments {{ holdout.get('train_documents', '—') }} · Held-out comments {{ holdout.get('test_documents', '—') }} ·
+        Train templates {{ holdout.get('train_unique_templates', '—') }} · Held-out templates {{ holdout.get('test_unique_templates', '—') }} ·
+        Exact phrase overlap {{ holdout.get('exact_template_overlap', '—') }}
+    </p>
+    <h4 style="font-size:14px; color:#0f172a; margin:16px 0 8px;">Document-level classification on held-out templates</h4>
+    <table>
+        <thead><tr><th>Model</th><th>Accuracy</th><th>Macro-F1</th><th>Weighted-F1</th></tr></thead>
+        <tbody>
+            <tr><td>Linear SVM</td><td>{{ holdout.get('document_level', {}).get('svm', {}).get('accuracy', '—') }}</td><td>{{ holdout.get('document_level', {}).get('svm', {}).get('macro_f1', '—') }}</td><td>{{ holdout.get('document_level', {}).get('svm', {}).get('weighted_f1', '—') }}</td></tr>
+            <tr><td>Multinomial Naive Bayes</td><td>{{ holdout.get('document_level', {}).get('naive_bayes', {}).get('accuracy', '—') }}</td><td>{{ holdout.get('document_level', {}).get('naive_bayes', {}).get('macro_f1', '—') }}</td><td>{{ holdout.get('document_level', {}).get('naive_bayes', {}).get('weighted_f1', '—') }}</td></tr>
+            <tr><td>Training-majority baseline</td><td>{{ holdout.get('document_level', {}).get('baseline_test_accuracy', '—') }}</td><td>—</td><td>—</td></tr>
+        </tbody>
+    </table>
+    <h4 style="font-size:14px; color:#0f172a; margin:16px 0 8px;">Aspect identification (separate from sentiment)</h4>
+    <p>Micro-precision <strong>{{ holdout.get('aspect_extraction', {}).get('precision', '—') }}</strong> ·
+       Micro-recall <strong>{{ holdout.get('aspect_extraction', {}).get('recall', '—') }}</strong> ·
+       Micro-F1 <strong>{{ holdout.get('aspect_extraction', {}).get('f1', '—') }}</strong>
+       ({{ holdout.get('aspect_extraction', {}).get('true_positive', '—') }} true positives,
+       {{ holdout.get('aspect_extraction', {}).get('false_positive', '—') }} false positives,
+       {{ holdout.get('aspect_extraction', {}).get('false_negative', '—') }} false negatives)</p>
+    <table>
+        <thead><tr><th>Teaching aspect</th><th>Precision</th><th>Recall</th><th>F1</th><th>Gold support</th></tr></thead>
+        <tbody>
+            {% for aspect, values in holdout.get('aspect_extraction', {}).get('per_aspect', {}).items() %}
+            <tr><td>{{ aspect }}</td><td>{{ values.precision }}</td><td>{{ values.recall }}</td><td>{{ values.f1 }}</td><td>{{ values.gold_support_comments }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <h4 style="font-size:14px; color:#0f172a; margin:16px 0 8px;">End-to-end aspect–sentiment pairs</h4>
+    <p>Pair micro-precision <strong>{{ holdout.get('end_to_end_pairs', {}).get('precision', '—') }}</strong> ·
+       pair micro-recall <strong>{{ holdout.get('end_to_end_pairs', {}).get('recall', '—') }}</strong> ·
+       pair micro-F1 <strong>{{ holdout.get('end_to_end_pairs', {}).get('f1', '—') }}</strong>.
+       A pair only counts as correct when both the aspect and its polarity match.</p>
+    <h4 style="font-size:14px; color:#0f172a; margin:16px 0 8px;">Sentiment classification given the correct aspect</h4>
+    <p>SVM accuracy {{ holdout.get('known_aspect_sentiment', {}).get('svm_accuracy', '—') }}, Macro-F1 {{ holdout.get('known_aspect_sentiment', {}).get('svm_macro_f1', '—') }} ·
+       Naive Bayes accuracy {{ holdout.get('known_aspect_sentiment', {}).get('naive_bayes_accuracy', '—') }}, Macro-F1 {{ holdout.get('known_aspect_sentiment', {}).get('naive_bayes_macro_f1', '—') }}.
+       This part has {{ holdout.get('known_aspect_sentiment', {}).get('heldout_templates', '—') }} held-out phrase templates and is a small diagnostic, not a general performance estimate.</p>
+</div>
+{% endif %}
+
 <div class="card">
     <h3 style="margin-bottom: 14px; color:#0f172a;">Aspect-level comparison</h3>
     <table>
         <thead>
             <tr>
                 <th>Aspect</th>
-                <th>Samples</th>
+                <th>Aspect records (all splits)</th>
                 <th>SVM Test Acc</th>
                 <th>SVM Test F1</th>
                 <th>SVM Val F1</th>
