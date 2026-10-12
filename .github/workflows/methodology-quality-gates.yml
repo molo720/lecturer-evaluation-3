@@ -24,7 +24,7 @@ jobs:
               nltk.download(resource, quiet=True)
           PY
       - name: Test production analysis and family split
-        run: python -m pytest -q tests/test_ml_engine_regressions.py tests/test_template_family_holdout.py
+        run: python -m pytest -q tests/test_ml_engine_regressions.py tests/test_template_family_holdout.py tests/test_aspect_extraction_metrics.py
       - name: Run synthetic template-family holdout benchmark
         run: python -m src.evaluate_template_holdout
       - name: Archive holdout metrics
