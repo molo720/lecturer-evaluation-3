@@ -264,7 +264,7 @@
       "Best_Model": "SVM"
     },
     {
-      "Aspect": "Lecturer Punctuality",
+      "Aspect": "Punctuality",
       "Samples": 2525,
       "SVM_Acc": 0.796,
       "SVM_Macro_F1": 0.6787,
@@ -666,7 +666,7 @@
           "false_negative": 415,
           "gold_support_comments": 522
         },
-        "Lecturer Punctuality": {
+        "Punctuality": {
           "precision": 1,
           "recall": 0.4133,
           "f1": 0.5849,
