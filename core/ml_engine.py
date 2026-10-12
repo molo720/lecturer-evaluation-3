@@ -264,16 +264,24 @@ def _signed_to_label(mean_score):
     return "neutral"
 
 
+ASPECT_STATUS_MIN_NET_MENTIONS = 2
+
 def classify_aspect_status(counts):
-    """Same decision rule as the lecturer-report aspect table."""
+    """Apply deterministic status rules shared by the report table and narrative.
+
+    No mentions means insufficient evidence. Otherwise, positive or negative
+    mentions must lead by at least ASPECT_STATUS_MIN_NET_MENTIONS before an
+    aspect is called a strength or improvement area. Smaller differences are
+    reported as balanced / inconclusive rather than over-interpreted.
+    """
     pos = int((counts or {}).get("positive", 0) or 0)
     neu = int((counts or {}).get("neutral", 0) or 0)
     neg = int((counts or {}).get("negative", 0) or 0)
     if pos + neu + neg == 0:
         return "insufficient"
-    if pos > neg:
+    if pos - neg >= ASPECT_STATUS_MIN_NET_MENTIONS:
         return "strength"
-    if neg > pos:
+    if neg - pos >= ASPECT_STATUS_MIN_NET_MENTIONS:
         return "improvement"
     return "balanced"
 

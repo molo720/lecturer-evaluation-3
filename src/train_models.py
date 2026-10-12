@@ -226,6 +226,14 @@ CONNECTORS_AND = [
     " and ", ". Furthermore, ", ". Also, ", ". Additionally, ", "; moreover, "
 ]
 
+def choose_phrase_template(aspect, sentiment):
+    """Return a generated phrase and a stable ID for its source phrase-bank item."""
+    phrases = aspect_templates[aspect][sentiment]
+    phrase_index = random.randrange(len(phrases))
+    family_id = f"{aspect}::{sentiment}::{phrase_index}"
+    return phrases[phrase_index], family_id
+
+
 def generate_synthetic_dataset(num_samples=1800):
     """
     Generates a rich, domain-specific evaluation dataset covering:
@@ -266,11 +274,13 @@ def generate_synthetic_dataset(num_samples=1800):
         
         clauses = []
         clause_labels = []
+        template_family_ids = []
         
         if target_doc_sentiment == "neutral":
             # Mostly neutral statements
             for asp in selected_aspects:
-                phrase = random.choice(aspect_templates[asp]["neutral"])
+                phrase, template_family_id = choose_phrase_template(asp, "neutral")
+                template_family_ids.append(template_family_id)
                 clauses.append(phrase)
                 clause_labels.append((asp, "neutral"))
             comment_text = " ".join(clauses)
@@ -283,7 +293,8 @@ def generate_synthetic_dataset(num_samples=1800):
                     sent = random.choice(["neutral", "negative"])
                 else:
                     sent = "positive"
-                phrase = random.choice(aspect_templates[asp][sent])
+                phrase, template_family_id = choose_phrase_template(asp, sent)
+                template_family_ids.append(template_family_id)
                 clauses.append(phrase)
                 clause_labels.append((asp, sent))
             
@@ -316,7 +327,8 @@ def generate_synthetic_dataset(num_samples=1800):
                     sent = random.choice(["neutral", "positive"])
                 else:
                     sent = "negative"
-                phrase = random.choice(aspect_templates[asp][sent])
+                phrase, template_family_id = choose_phrase_template(asp, sent)
+                template_family_ids.append(template_family_id)
                 clauses.append(phrase)
                 clause_labels.append((asp, sent))
             
@@ -351,7 +363,8 @@ def generate_synthetic_dataset(num_samples=1800):
             "rating": rating,
             "comment": comment_text,
             "document_sentiment": doc_sentiment,
-            "aspect_labels": json.dumps(clause_labels)
+            "aspect_labels": json.dumps(clause_labels),
+            "template_family_ids": json.dumps(template_family_ids)
         })
 
     df = pd.DataFrame(records)
@@ -497,7 +510,7 @@ def classify_metrics(y_true, y_pred, labels=("positive", "neutral", "negative"))
     cm = confusion_matrix(y_true, y_pred, labels=list(labels))
     
     # Per-class metrics
-    p_per_class, r_per_class, f1_per_class, _ = precision_recall_fscore_support(
+    p_per_class, r_per_class, f1_per_class, support_per_class = precision_recall_fscore_support(
         y_true, y_pred, labels=list(labels), average=None, zero_division=0
     )
     
@@ -507,6 +520,7 @@ def classify_metrics(y_true, y_pred, labels=("positive", "neutral", "negative"))
             "precision": round(p_per_class[i], 4),
             "recall": round(r_per_class[i], 4),
             "f1": round(f1_per_class[i], 4),
+            "support": int(support_per_class[i]),
         }
     
     return {
@@ -721,12 +735,38 @@ def main():
         svm_asp_pred = svm_asp.predict(X_te_v)
         nb_asp_pred = nb_asp.predict(X_te_v)
 
+        metric_labels = ("positive", "neutral", "negative")
         svm_acc = accuracy_score(y_te, svm_asp_pred)
-        _, _, svm_macro_f1, _ = precision_recall_fscore_support(y_te, svm_asp_pred, average="macro", zero_division=0)
-        _, _, svm_weight_f1, _ = precision_recall_fscore_support(y_te, svm_asp_pred, average="weighted", zero_division=0)
+        _, _, svm_macro_f1, _ = precision_recall_fscore_support(
+            y_te, svm_asp_pred, labels=list(metric_labels), average="macro", zero_division=0
+        )
+        _, _, svm_weight_f1, _ = precision_recall_fscore_support(
+            y_te, svm_asp_pred, labels=list(metric_labels), average="weighted", zero_division=0
+        )
         nb_acc = accuracy_score(y_te, nb_asp_pred)
-        _, _, nb_macro_f1, _ = precision_recall_fscore_support(y_te, nb_asp_pred, average="macro", zero_division=0)
-        _, _, nb_weight_f1, _ = precision_recall_fscore_support(y_te, nb_asp_pred, average="weighted", zero_division=0)
+        _, _, nb_macro_f1, _ = precision_recall_fscore_support(
+            y_te, nb_asp_pred, labels=list(metric_labels), average="macro", zero_division=0
+        )
+        _, _, nb_weight_f1, _ = precision_recall_fscore_support(
+            y_te, nb_asp_pred, labels=list(metric_labels), average="weighted", zero_division=0
+        )
+
+        def per_class_support_report(y_true, y_pred):
+            precision, recall, f1, support = precision_recall_fscore_support(
+                y_true, y_pred, labels=list(metric_labels), average=None, zero_division=0
+            )
+            return {
+                label: {
+                    "precision": round(float(precision[i]), 4),
+                    "recall": round(float(recall[i]), 4),
+                    "f1": round(float(f1[i]), 4),
+                    "support": int(support[i]),
+                }
+                for i, label in enumerate(metric_labels)
+            }
+
+        svm_per_class = per_class_support_report(y_te, svm_asp_pred)
+        nb_per_class = per_class_support_report(y_te, nb_asp_pred)
 
         safe_name = aspect.replace(" ", "_").lower()
         joblib.dump(svm_asp, f"models/svm_{safe_name}.pkl")
@@ -735,18 +775,26 @@ def main():
 
         aspect_metrics.append({
             "Aspect": aspect,
-            "Samples": len(sub_data),
+            "Samples": int(len(sub_data)),
+            "Test_Samples": int(len(y_te)),
+            "Classes": list(metric_labels),
+            "SVM_Per_Class_Metrics": svm_per_class,
+            "NB_Per_Class_Metrics": nb_per_class,
             "SVM_Acc": round(svm_acc, 4),
             "SVM_Macro_F1": round(svm_macro_f1, 4),
             "SVM_Weighted_F1": round(svm_weight_f1, 4),
             "SVM_Val_Macro_F1": round(best_svm_f1, 4),
-            "SVM_Confusion_Matrix": confusion_matrix(y_te, svm_asp_pred).tolist(),
+            "SVM_Confusion_Matrix": confusion_matrix(y_te, svm_asp_pred, labels=list(metric_labels)).tolist(),
             "NB_Acc": round(nb_acc, 4),
             "NB_Macro_F1": round(nb_macro_f1, 4),
             "NB_Weighted_F1": round(nb_weight_f1, 4),
             "NB_Val_Macro_F1": round(best_nb_f1, 4),
-            "NB_Confusion_Matrix": confusion_matrix(y_te, nb_asp_pred).tolist(),
-            "Best_Model": "SVM" if svm_macro_f1 >= nb_macro_f1 else "Naive Bayes",
+            "NB_Confusion_Matrix": confusion_matrix(y_te, nb_asp_pred, labels=list(metric_labels)).tolist(),
+            "Best_Model": (
+                "Tie" if abs(svm_macro_f1 - nb_macro_f1) < 1e-12
+                else "SVM" if svm_macro_f1 > nb_macro_f1
+                else "Naive Bayes"
+            ),
         })
 
     asp_results_df = pd.DataFrame(aspect_metrics)
@@ -762,15 +810,18 @@ def main():
 
     metrics_data = {
         "dataset": {
-            "nigerian_records": int(len(nigerian_df)),
+            "nigerian_context_records": int(len(nigerian_df)),
+            "nigerian_records": int(len(nigerian_df)),  # legacy key for older UI consumers
             "synthetic_records": int(len(synthetic_df)),
             "slang_records": int(len(slang_df)) if not slang_df.empty else 0,
+            "real_institutional_records": 0,
             "total_records": int(len(df)),
             "train_size": int(len(X_train_d)),
             "validation_size": int(len(X_val_d)),
             "test_size": int(len(X_test_d)),
-            "split": "60% train / 20% validation / 20% test",
-            "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels; slang/sarcasm gold labels",
+            "split": "Random stratified 60% train / 20% validation / 20% test; phrase-family holdout is a separate experiment",
+            "corpus_scope_note": "The 10,000 Nigerian-context comments are described in the manuscript as LLM-generated. All records in this experiment are synthetic or engineered, not authentic institutional student submissions.",
+            "document_label_source": "LLM-generated Nigerian-context records use rating-derived proxy labels (1-2 negative, 3 neutral, 4-5 positive); template and slang records use generator/dataset-assigned labels, not independent human annotation",
         },
         "document_level": {
             "majority_baseline_accuracy": round(dummy_acc, 4),

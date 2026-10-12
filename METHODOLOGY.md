@@ -1,385 +1,195 @@
-# Training Methodology Documentation
-
-## Overview
-This document provides detailed information about the model training methodology, including split sizes, hyperparameters, TF-IDF settings, seeds, package versions, and evaluation procedures.
-
-## Dataset Composition
-
-### Total Training Samples: 13,600
-- **Nigerian Lecturer Evaluations**: 10,000 samples
-- **Synthetic Evaluations**: 1,600 samples
-- **Nigerian Slang/Sarcasm/Insults**: 2,000 samples
-
-### Data Split
-- **Training**: 60% (8,160 samples)
-- **Validation**: 20% (2,720 samples)
-- **Test**: 20% (2,720 samples)
-- **Split method**: Stratified by sentiment labels (positive, neutral, negative)
-- **Random seed**: 42
-- **Partition rule**: Clauses from the same parent comment are kept in one partition
-
-## Document-Level Models
-
-### TF-IDF Vectorization Settings
-- **ngram_range**: (1, 2) - unigrams and bigrams
-- **sublinear_tf**: True - use sublinear TF scaling
-- **min_df**: 2 - ignore terms appearing in fewer than 2 documents
-- **max_features**: 50,000 - limit vocabulary size
-- **Fitting**: Vectorizer fitted ONLY on training data, then applied to validation and test
-
-### Linear SVM (Support Vector Machine)
-- **Hyperparameters**:
-  - C (regularization): Grid search over [0.5, 1.0, 2.0]
-  - Selected C: 1.0 (based on validation Macro-F1)
-  - max_iter: 5,000
-  - random_state: 42
-- **Model**: LinearSVC
-- **Training data**: Combined train + validation (8,160 + 2,720 = 10,880 samples)
-- **Validation metric**: Macro-F1 score
-- **Cross-validation**: 5-fold StratifiedKFold (shuffle=True, random_state=42)
-
-### Multinomial Naive Bayes
-- **Hyperparameters**:
-  - alpha (smoothing): Grid search over [0.1, 0.5, 1.0]
-  - Selected alpha: 0.1 (based on validation Macro-F1)
-- **Model**: MultinomialNB
-- **Training data**: Combined train + validation (10,880 samples)
-- **Validation metric**: Macro-F1 score
-- **Cross-validation**: 5-fold StratifiedKFold (shuffle=True, random_state=42)
-
-### Validation and 5-Fold CV Macro-F1 Figures
-- **SVM**:
-  - Validation Macro-F1: ~0.688
-  - 5-fold CV Macro-F1 mean: ~0.688 ± 0.02 (± represents standard deviation across folds)
-  - Test Macro-F1: ~0.688
-  - Test Accuracy: ~0.796
-- **Naive Bayes**:
-  - Validation Macro-F1: ~0.688
-  - 5-fold CV Macro-F1 mean: ~0.688 ± 0.02
-  - Test Macro-F1: ~0.688
-  - Test Accuracy: ~0.802
-
-**Interpretation of ± values**: The ± represents the standard deviation of Macro-F1 scores across the 5 cross-validation folds, indicating model stability. A lower ± value indicates more consistent performance across different data splits.
-
-## Aspect-Level Models
-
-For each of the 8 teaching aspects, we train separate classifiers:
-
-### TF-IDF Vectorization Settings (Aspect-Level)
-- **ngram_range**: (1, 2) - unigrams and bigrams
-- **sublinear_tf**: True
-- **min_df**: 1 - include terms appearing in at least 1 document (lower threshold due to smaller aspect-specific datasets)
-- **max_features**: 30,000 - limit vocabulary size
-- **Fitting**: Vectorizer fitted ONLY on aspect-specific training data
-
-### Linear SVM (Aspect-Level)
-- **Hyperparameters**:
-  - C: Grid search over [0.5, 1.0, 2.0]
-  - Selected C: Aspect-specific (varies by aspect)
-  - max_iter: 5,000
-  - random_state: 42
-- **Training data**: Combined train + validation for each aspect
-- **Minimum samples**: Aspects with <20 samples are skipped
-
-### Multinomial Naive Bayes (Aspect-Level)
-- **Hyperparameters**:
-  - alpha: Grid search over [0.1, 0.5, 1.0]
-  - Selected alpha: Aspect-specific (varies by aspect)
-- **Training data**: Combined train + validation for each aspect
-
-### Aspect Performance Examples
-- **Communication**: SVM 99.44% accuracy, Macro-F1 ~0.99
-- **Student Interaction**: SVM 85.97% accuracy, Macro-F1 ~0.86
-- **Use of Teaching Materials**: NB 83.06% accuracy, Macro-F1 ~0.83
-- **Teaching Clarity**: SVM 78.3% accuracy, Macro-F1 ~0.78
-
-## Random Seeds and Reproducibility
-
-### Seed Values
-- **random.seed()**: 42
-- **np.random.seed()**: 42
-- **train_test_split random_state**: 42
-- **LinearSVC random_state**: 42
-- **StratifiedKFold random_state**: 42
-
-All seeds are set to 42 to ensure reproducibility across training runs.
-
-## Package Versions
-
-### Core Dependencies (from requirements.txt)
-- **Python**: 3.12
-- **scikit-learn**: 1.9.1
-- **numpy**: 2.5.2
-- **pandas**: 3.0.5
-- **nltk**: 3.10.3
-- **joblib**: 1.6.0
-- **Flask**: 3.1.3
-- **gensim**: 4.4.0
-- **scipy**: 1.18.1
-
-### ML-Specific Versions
-- **sklearn-crfsuite**: 0.5.0
-- **python-crfsuite**: 0.9.12
-
-## Preprocessing Pipeline
-
-### Text Cleaning Steps
-1. **Contraction expansion**: "don't" → "do not", "isn't" → "is not"
-2. **Lowercasing**: Convert all text to lowercase
-3. **Stopword removal**: Remove NLTK English stopwords
-4. **Stemming**: Apply Porter stemmer
-5. **Punctuation removal**: Remove special characters and punctuation
-
-### Document Label Source
-- **Nigerian dataset**: Rating-based labels (1-2 → negative, 3 → neutral, 4-5 → positive)
-- **Synthetic dataset**: Gold labels from template generation
-- **Slang dataset**: Gold labels from manual annotation
-
-## Class Counts (Document-Level)
-
-### Label Distribution (approximate)
-- **Positive**: ~42% (5,712 samples)
-- **Negative**: ~38% (5,168 samples)
-- **Neutral**: ~20% (2,720 samples)
-
-### Duplicate Checks
-- Duplicate comments are identified and removed during preprocessing
-- Near-duplicate detection is performed using TF-IDF similarity
-- Template-family hold-outs are preferred where possible to avoid memorization
-
-## Evaluation Metrics
-
-### Document-Level Metrics
-- **Accuracy**: Overall classification accuracy
-- **Macro-Precision**: Average precision across all classes (unweighted)
-- **Macro-Recall**: Average recall across all classes (unweighted)
-- **Macro-F1**: Harmonic mean of macro-precision and macro-recall
-- **Weighted-F1**: F1 score weighted by class support
-- **Confusion Matrix**: 3x3 matrix (positive, neutral, negative)
-- **Baseline**: Majority-class classifier accuracy
-
-### Aspect-Level Metrics
-- **Accuracy**: Overall classification accuracy per aspect
-- **Macro-F1**: Average F1 across sentiment classes per aspect
-- **Weighted-F1**: Weighted F1 per aspect
-- **Confusion Matrix**: 3x3 matrix per aspect
-- **Validation Macro-F1**: Best validation score during hyperparameter tuning
-
-## Training Runtime
-
-### Measured Runtime
-- **Total training time**: ~2-3 minutes (local machine)
-- **Document-level training**: ~30-45 seconds
-- **Aspect-level training**: ~1.5-2 minutes (8 aspects × 2 models)
-- **Hardware**: Local development machine (specifications not documented)
-
-## Aspect Train/Validation/Test Procedure
-
-### Procedure
-1. **Document-level**: Split entire dataset 60/20/20 using stratified split
-2. **Aspect-level**: For each aspect, extract only samples with that aspect label, then perform independent 60/20/20 stratified split
-3. **Clause partitioning**: All clauses from the same parent comment are kept in the same partition (train/val/test)
-4. **Validation scores**: Reported from validation set during hyperparameter tuning
-5. **Test scores**: Final evaluation on held-out test set after model selection
-
-### Clarification on Live Page vs Documentation
-- **Live page shows**: Validation scores (used for model selection)
-- **Documentation mentions**: 80/20 split (this refers to train+val vs test, or older documentation)
-- **Actual procedure**: 60% train / 20% validation / 20% test (as implemented in code)
-
-## Template Overlap and Near-Duplicate Handling
-
-### Report Template
-- Template-family overlap is checked during dataset generation
-- Near-duplicate detection uses TF-IDF cosine similarity threshold
-- Template hold-outs are preferred where possible to avoid overfitting to specific phrasing patterns
-
-### Duplicate Checks
-- Exact duplicate comments are removed
-- Near-duplicates (similarity > 0.9) are flagged and potentially removed
-- Slang dataset specifically designed to include near-duplicates for robustness testing
-
-## Evaluation Requirements
-
-### Separate Evaluation Tasks
-1. **Aspect Identification**: Precision/Recall/F1 for detecting which aspects are mentioned
-2. **Sentiment Given Known Aspect**: Accuracy/Macro-F1 for sentiment classification when aspect is known
-3. **End-to-End Aspect-Sentiment Pairs**: Joint accuracy for (aspect, sentiment) pairs
-
-### Current Implementation
-- **✅ Implemented**: Sentiment classification given known aspect (aspect-level models)
-  - Metrics: Accuracy, Macro-F1, Weighted-F1 per aspect
-  - Evaluation: Trained and evaluated on aspect-specific datasets
-  - Dashboard: Displays aspect-level comparison table
-- **✅ Implemented**: Per-class metrics for sentiment classification
-  - Metrics: Precision, Recall, F1 for positive/neutral/negative separately
-  - Evaluation: Added to document-level model metrics
-  - Dashboard: Displays per-class metrics and confusion matrices
-- **❌ Not implemented**: Separate aspect identification metrics
-  - Requires: Manual annotation of aspect mentions in comments
-  - Current approach: Keyword-based matching (no ML-based aspect extraction)
-  - Status: Keyword lexicons are heuristic, not trained models
-- **❌ Not implemented**: End-to-end joint metrics
-  - Requires: Gold-standard (aspect, sentiment) pairs
-  - Current approach: Separate keyword matching + sentiment classification
-  - Status: Cannot evaluate jointly without ground truth
-
-### Recommended Future Work
-1. **Manually annotate a subset of comments for aspect mentions**
-   - Select 500-1000 representative comments
-   - Annotate which of the 8 aspects are mentioned
-   - Annotate sentiment for each mentioned aspect
-   - Create gold-standard evaluation dataset
-
-2. **Calculate precision/recall/F1 for aspect extraction**
-   - Compare keyword-based extraction against manual annotations
-   - Report per-aspect extraction metrics
-   - Identify aspects with poor extraction performance
-
-3. **Calculate joint accuracy for (aspect, sentiment) pairs**
-   - Evaluate complete pipeline on annotated dataset
-   - Report joint accuracy: correct aspect AND correct sentiment
-   - Analyze where errors occur (aspect extraction vs sentiment classification)
-
-4. **Implement ML-based aspect extraction** (optional)
-   - Train sequence labeling model (CRF or BERT) for aspect extraction
-   - Compare against keyword-based approach
-   - Evaluate using manual annotations
-
-5. **Include independently labeled error examples**
-   - Collect systematic error examples from evaluation
-   - Categorize errors (aspect extraction, sentiment classification, negation)
-   - Display in model evaluation dashboard
-
-6. **Measure and report inference runtime**
-   - Measure time per analysis request
-   - Report average/median/max latency
-   - Optimize if latency > 500ms
-
-## Confusion Matrices
-
-### Document-Level Confusion Matrix
-```
-              Predicted
-            Pos  Neu  Neg
-Actual Pos   TP   FN   FN
-Actual Neu   FP   TN   FN
-Actual Neg   FP   FP   TN
-```
-
-### Aspect-Level Confusion Matrices
-Separate 3x3 confusion matrices for each of the 8 aspects, showing:
-- True Positives, False Positives, True Negatives, False Negatives
-- Per-class accuracy
-- Confusion between classes (e.g., positive predicted as negative)
-
-## Error Analysis
-
-### Error Examples
-**Status**: Not yet systematically collected
-
-**Recommended Implementation**:
-1. Create a validation set with manually annotated aspect-sentiment pairs
-2. Collect examples of:
-   - False positives (positive predicted as negative)
-   - False negatives (negative predicted as positive)
-   - Confusion between positive and neutral
-   - Confusion between negative and neutral
-3. Analyze error patterns to identify systematic issues
-4. Document specific examples in model evaluation dashboard
-
-**Current Placeholder**:
-The model evaluation page now displays confusion matrices and per-class metrics. Error examples should be added to provide qualitative analysis of model failures.
-
-### Common Error Patterns
-- Slang and sarcasm detection challenges
-- Mixed-clause sentences with contrasting sentiments
-- Aspect keyword overlap (same keyword used for multiple aspects)
-- Negation scope errors (already addressed in bug fixes - see test_negation_standalone.py)
-
-## Requirement-to-Test Record
-
-### Implemented Tests
-- ✅ Negation handling (not, never, doesn't, isn't, mixed-clause)
-  - Test file: `test_negation_standalone.py`
-  - Status: All tests passing
-  - Coverage: Basic negation, negation in scope, polarity flipping, mixed-clause scenarios
-- ✅ Summary narrative consistency with aspect table
-  - Test file: `test_summary_standalone.py`
-  - Status: All tests passing
-  - Coverage: Aspect status classification, summary generation, label consistency
-- ✅ Factual/unmatched text handling (insufficient evidence)
-  - Test file: `test_factual_text.py`
-  - Status: All tests passing
-  - Coverage: Factual sentences, irrelevant text, zero-evidence aspects
-- ✅ Composite score calculation and range [-1, 1]
-  - Test file: `test_composite_score.py`
-  - Status: All tests passing
-  - Coverage: Formula verification, range boundaries, extreme values
-- ✅ PDF export UI label accuracy
-  - Updated: `templates/lecturer_report.html`
-  - Status: Button label changed to "Print / Save as PDF (browser)"
-  - Tooltip: Clarifies browser print dialog, no server-generated PDF
-- ✅ Per-class metrics and confusion matrices
-  - Updated: `src/train_models.py` (added per_class_metrics to classify_metrics)
-  - Updated: `templates/model_evaluation.html` (added confusion matrix visualization)
-  - Status: Per-class precision/recall/F1 now displayed in dashboard
-- ✅ Training methodology documentation
-  - Created: `METHODOLOGY.md`
-  - Status: Comprehensive documentation of all training parameters
-  - Coverage: Split sizes, hyperparameters, TF-IDF settings, seeds, package versions
-
-### Pending Tests (Requires Manual Annotation)
-- ⏳ Aspect identification precision/recall/F1
-  - Blocker: Requires manual annotation of aspect mentions in comments
-  - Est. effort: 8-12 hours for annotation of 500-1000 comments
-- ⏳ End-to-end aspect-sentiment pair accuracy
-  - Blocker: Requires gold-standard (aspect, sentiment) pairs
-  - Est. effort: Depends on aspect identification completion
-- ⏳ Error example collection and analysis
-  - Blocker: Requires systematic error analysis on test set
-  - Est. effort: 4-6 hours for categorization and documentation
-- ⏳ Inference runtime measurement
-  - Blocker: Requires runtime instrumentation in production
-  - Est. effort: 2-3 hours for implementation and analysis
-- ⏳ Template overlap evaluation statistics
-  - Blocker: Requires analysis of synthetic dataset generation
-  - Est. effort: 3-4 hours for similarity analysis
-
-### Test Files Summary
-- `test_negation_standalone.py` - Negation handling tests (PASS)
-- `test_summary_standalone.py` - Summary consistency tests (PASS)
-- `test_factual_text.py` - Factual text handling tests (PASS)
-- `test_composite_score.py` - Composite score tests (PASS)
-- `test_negation_simple.py` - Basic negation detection (PASS)
-- `test_keyword_matching.py` - Keyword matching tests (PASS)
-- `test_full_analysis.py` - End-to-end analysis tests (PASS)
-
-## Model Files
-
-### Saved Artifacts
-All models saved in `models/` directory:
-- `svm_document.pkl` - Document-level SVM
-- `nb_document.pkl` - Document-level Naive Bayes
-- `vectorizer_document.pkl` - Document TF-IDF vectorizer
-- `svm_{aspect}.pkl` - 8 aspect SVM models
-- `nb_{aspect}.pkl` - 8 aspect Naive Bayes models
-- `vectorizer_{aspect}.pkl` - 8 aspect TF-IDF vectorizers
-
-### Model Persistence
-- Format: joblib pickle files
-- Compatibility: scikit-learn 1.9.1
-- Versioning: No explicit version control (manual retraining required)
-
-## Reproducibility Checklist
-
-To reproduce the training results:
-1. ✅ Set random seeds (random=42, numpy=42, sklearn=42)
-2. ✅ Use same package versions (requirements.txt)
-3. ✅ Use same datasets (Nigerian 10k, synthetic 1.6k, slang 2k)
-4. ✅ Use same split ratios (60/20/20)
-5. ✅ Use same hyperparameters (C=1.0 for SVM, alpha=0.1 for NB)
-6. ✅ Use same TF-IDF settings (ngram=(1,2), max_features=50k)
-7. ⏳ Document hardware specifications
-8. ⏳ Record exact runtime per model
-9. ⏳ Version control for model artifacts
+# Methodology, Evaluation Results, and Evidence Boundaries
+
+**Revision date:** 12 October 2026  
+**Scope:** Research-methodology record for the lecturer-evaluation prototype. This file distinguishes stored experimental metrics, code-level regression tests, observed deployed behaviour, and evaluations that still require human-annotated data or participants.
+
+## 1. Dataset provenance and scope
+
+The experiment contains 13,600 synthetic or engineered records as described in the project manuscript:
+
+| Corpus component | Records | Label source | Evidence boundary |
+|---|---:|---|---|
+| LLM-generated Nigerian-context comments | 10,000 | Rating-derived proxy labels: ratings 1-2 = negative, 3 = neutral, 4-5 = positive | These are not verified institutional SET submissions. A rating is not an independent human annotation of comment sentiment. |
+| Controlled multi-aspect template comments | 1,600 | Generator-assigned labels | Labels are known from generation rules, not independent annotation. |
+| Nigerian slang, sarcasm, and insult examples | 2,000 | Dataset/generator-assigned labels | Inclusion of slang examples does not itself validate sarcasm recognition. |
+| **Total** | **13,600** | Mixed proxy/generator labels | **No authentic institutional student comments are included in the reported experiment.** |
+
+The word *Nigerian* describes the context and expressions represented in the corpus; it must not be used to imply that the 10,000-row component was collected from actual students. The thesis describes these records as Gemini/LLM-generated, and the repository does not contain independent provenance or ethics documentation establishing them as authentic institutional responses. The application and thesis must therefore use the synthetic/engineered description consistently.
+
+No claim of independent human annotation, inter-annotator agreement, Cohen's kappa, or validated ground truth should be made unless records of that work are supplied. Rating-derived labels should be called *proxy labels* throughout.
+
+## 2. Existing random-split experiment
+
+The stored document-classification experiment uses a stratified random 60/20/20 split with seed 42: 8,160 training records, 2,720 validation records, and 2,720 held-out test records. Hyperparameters are selected using validation Macro-F1. The saved test metrics are:
+
+| Model | Accuracy | Macro-Precision | Macro-Recall | Macro-F1 | Weighted-F1 |
+|---|---:|---:|---:|---:|---:|
+| Majority-class baseline | 0.4441 | — | — | — | — |
+| Linear SVM | 0.7960 | 0.7680 | 0.7101 | 0.6808 | 0.7458 |
+| Multinomial Naive Bayes | 0.8015 | 0.8103 | 0.7135 | 0.6776 | 0.7449 |
+
+These are **random-split results on synthetic/engineered text**. The split does not demonstrate generalisation to unseen template families. They must not be presented as accuracy on real Nigerian student feedback or as proof of institutional suitability.
+
+### 2.1 Feature extraction and parameters
+
+The document-level vectoriser uses TF-IDF with unigrams and bigrams, sublinear_tf=True, min_df=2, and max_features=50000. The vocabulary is fitted on the training partition and then used to transform the validation and test partitions. The final reported document models use LinearSVC with selected C=1.0 and MultinomialNB with selected alpha=0.1; the candidate values are C in [0.5, 1.0, 2.0] and alpha in [0.1, 0.5, 1.0]. The source sets Python and NumPy seeds and uses random_state=42 for stratified splits.
+
+The saved five-fold CV scores are SVM Macro-F1 0.6907 ± 0.0066 and NB Macro-F1 0.6849 ± 0.0103. The ± values are the standard deviation across five folds. These CV figures should be treated as supplementary to the held-out test scores: the current code vectorises the training partition before cross-validation, so a stricter CV estimate should fit the vectoriser inside a scikit-learn Pipeline separately within each fold.
+
+The document test confusion matrices use class order **positive, neutral, negative**; rows are actual classes and columns are predicted classes.
+
+**Linear SVM**
+
+| Actual / Predicted | Positive | Neutral | Negative | Support |
+|---|---:|---:|---:|---:|
+| Positive | 853 | 38 | 1 | 892 |
+| Neutral | 256 | 112 | 252 | 620 |
+| Negative | 0 | 8 | 1,200 | 1,208 |
+
+**Multinomial Naive Bayes**
+
+| Actual / Predicted | Positive | Neutral | Negative | Support |
+|---|---:|---:|---:|---:|
+| Positive | 880 | 12 | 0 | 892 |
+| Neutral | 274 | 99 | 247 | 620 |
+| Negative | 0 | 7 | 1,201 | 1,208 |
+
+### 2.2 Per-class document-level metrics
+
+| Model | Class | Precision | Recall | F1 | Support |
+|---|---|---:|---:|---:|---:|
+| SVM | Positive | 0.7692 | 0.9563 | 0.8526 | 892 |
+| SVM | Neutral | 0.7089 | 0.1806 | 0.2879 | 620 |
+| SVM | Negative | 0.8259 | 0.9934 | 0.9019 | 1,208 |
+| Naive Bayes | Positive | 0.7626 | 0.9865 | 0.8602 | 892 |
+| Naive Bayes | Neutral | 0.8390 | 0.1597 | 0.2683 | 620 |
+| Naive Bayes | Negative | 0.8294 | 0.9942 | 0.9044 | 1,208 |
+
+The neutral class has substantially lower recall and F1 than the positive and negative classes. This class-specific weakness should be discussed explicitly; overall accuracy hides it.
+
+## 3. Aspect-level sentiment is not aspect extraction
+
+The system's live analysis path uses lexicon-guided keyword matching to propose teaching aspects and then applies polarity rules/classifiers. The model-evaluation table reports sentiment classification on labelled examples associated with each aspect. This does **not** establish that the system discovers aspects correctly in unseen raw comments.
+
+Three distinct evaluation tasks must be kept separate:
+
+1. **Aspect identification:** compare the aspects detected in a comment with independently human-annotated gold aspects and report precision, recall, and F1.
+2. **Sentiment given a known aspect:** assess polarity only when the aspect is already supplied or correctly identified.
+3. **End-to-end aspect-sentiment pairs:** a pair is correct only when both the aspect and its sentiment match the gold annotation.
+
+Aspect-identification and end-to-end pair metrics remain **pending** until a representative sample of comments is independently annotated. The current lexicon output alone cannot provide gold labels. An annotation file schema and evaluation script should be used for a future manually annotated sample. Do not place invented extraction scores in the thesis.
+
+The aspect-level test F1 values currently stored in the report are:
+
+| Aspect | Total labelled examples | Held-out test examples | SVM Macro-F1 | NB Macro-F1 | Higher stored Macro-F1 |
+|---|---:|---:|---:|---:|---|
+| Teaching Clarity | 2,557 | 512 | 0.6834 | 0.6796 | SVM |
+| Course Organisation | 2,620 | 524 | 0.7425 | 0.7152 | SVM |
+| Assessment and Grading | 2,520 | 504 | 0.7047 | 0.6855 | SVM |
+| Lecturer Punctuality | 2,525 | 505 | 0.6787 | 0.6748 | SVM |
+| Availability | 2,625 | 525 | 0.7410 | 0.7287 | SVM |
+| Communication | 3,548 | 710 | 0.6891 | 0.6896 | Naive Bayes |
+| Student Interaction | 3,514 | 703 | 0.6986 | 0.6829 | SVM |
+| Use of Teaching Materials | 2,124 | 425 | 0.7394 | 0.7414 | Naive Bayes |
+
+Total labelled examples are not the same quantity as held-out test examples. The older stored matrices were generated without explicit class labels, so their matrix order was scikit-learn's sorted order (negative, neutral, positive). The updated training code now fixes and records an explicit class order (positive, neutral, negative) and records per-class support. Metrics from different matrix orders must not be mixed.
+
+## 4. Phrase-template leakage and the separate holdout experiment
+
+The standard random split can place the same phrase-bank item in both training and test records. It is therefore insufficient as the only evidence of generalisation. The branch adds an independent phrase-template holdout experiment:
+
+- The generator assigns stable IDs to each phrase item, using aspect, polarity, and phrase-bank position.
+- Entire comments containing a held-out phrase item are excluded from training and are placed in the test set.
+- Held-out IDs are asserted to be absent from the training pool.
+- Validation is performed only within the non-held-out pool; the held-out test set is not used for hyperparameter selection.
+- The experiment uses the synthetic phrase-bank corpus only. It does not test transfer to real student feedback and does not measure aspect-identification accuracy.
+
+The experiment entry point is python -m src.evaluate_template_holdout. A successful GitHub Actions run on 12 October 2026 (run 38305693936) generated and archived the benchmark JSON. The run generated 1,600 synthetic phrase-template records, held out 43 phrase items across the aspect/polarity banks, and placed every comment containing at least one held-out phrase item in the test set. The resulting non-held-out pool contained 720 records (576 inner-training and 144 validation records); the held-out test set contained 880 records. Assertions confirmed that training and test rows were disjoint and that held-out phrase IDs were absent from the training pool. This is a held-out phrase-template test, not a test of authentic student feedback.
+
+| Phrase-template holdout model | Test accuracy | Test Macro-F1 | Test weighted-F1 |
+|---|---:|---:|---:|
+| Linear SVM (selected C=2.0; validation Macro-F1 0.9482) | 0.7261 | 0.7153 | 0.7264 |
+| Multinomial Naive Bayes (selected alpha=1.0; validation Macro-F1 0.9262) | 0.7080 | 0.6948 | 0.7077 |
+
+Per-class support in this holdout test was Positive=365, Neutral=189, Negative=326 (880 comments total). SVM per-class precision/recall/F1 were Positive 0.7500/0.7315/0.7406; Neutral 0.6410/0.6614/0.6510; Negative 0.7508/0.7577/0.7542. Naive Bayes values were Positive 0.7265/0.7205/0.7235; Neutral 0.6270/0.6138/0.6203; Negative 0.7327/0.7485/0.7405.
+
+The benchmark JSON records the exact 43 held-out phrase IDs, both confusion matrices, model settings and split sizes, and is archived as the GitHub Actions artifact “template-family-holdout-metrics” for run 38305693936. This run provides evidence of performance on unseen phrase items within the synthetic phrase-bank generator. It does not validate aspect-extraction precision/recall/F1, transfer to authentic student feedback, or user usefulness. A held-out comment may still contain other non-held-out phrases; the entire comment is nonetheless excluded from training.
+
+Near-duplicate detection across the complete 13,600-record corpus has not been established by the existing manuscript alone. Do not say that exact duplicates were removed or that a TF-IDF similarity threshold was applied unless a repeatable duplicate audit and its counts are supplied.
+
+## 5. Aspect-status summaries and composite scores
+
+The production summary rule is deterministic and shared by the report table and narrative:
+- Zero total mentions -> **Insufficient evidence**.
+- Positive mentions exceed negative mentions by at least two -> **Strength Area**.
+- Negative mentions exceed positive mentions by at least two -> **Improvement Area**.
+- Smaller differences or a tie -> **Balanced / Neutral**.
+
+The threshold is a transparent reporting heuristic, not a statistical significance test or proof of teaching effectiveness. Neutral counts contribute to whether any evidence exists but do not offset positive-minus-negative balance.
+
+The illustrative composite is:
+
+**overall_cs = 0.4 × ((rating - 3) / 2) + 0.6 × mean(detected aspect scores)**
+
+where positive, neutral and negative aspect scores are +1, 0 and -1 respectively. It is bounded to [-1, 1]. If no aspect is detected, the composite must be missing/unavailable, not 0.0, because no detected aspect is not the same as validated neutral evidence. The 0.4/0.6 weights are design choices and have not been validated against an external measure of teaching effectiveness.
+
+## 6. Functional regression tests versus live-system verification
+
+The revision branch adds tests that import the actual production functions in core.ml_engine; these are stronger than tests that copy the implementation into a standalone test file. GitHub Actions has reported a successful run of these code-level regression tests (17 checks) after adding coverage for:
+- "not punctual", "never available", "doesn't explain well", and "isn't organized";
+- mixed positive/negative aspects in the same comment;
+- neutral/factual unmatched text returning insufficient aspect evidence;
+- deterministic summary status, including ties and zero evidence;
+- composite-score boundary cases;
+- leakage assertions and reproducibility of the family-split helper.
+
+A code-level pass is **not** proof that the deployed Railway application has been re-tested. The revision branch must be reviewed, merged, deployed, and checked again on the live site before stating that these fixes are present in production.
+
+### Requirement-to-test matrix
+
+| Requirement | Test input/action | Expected result | Evidence currently available | Status |
+|---|---|---|---|---|
+| FR-01: accept evaluation data | Open the public submission page; upload a valid CSV/XLSX as administrator | Valid rows validate and persist without collecting student identity | Public form observed; import/persistence was not exercised in the 9 Oct review | Not verified end-to-end |
+| FR-02: preprocess text | Contraction and case examples such as "isn't organized" | Normalised text preserves negation and sentiment cues | Production preprocessing path is used by branch regression tests | Partial, code-level |
+| FR-03: sentiment analysis | Mixed comment: "The lecturer explains concepts clearly, but grading is unfair." | Teaching Clarity positive; Assessment and Grading negative | Correct mixed-aspect output observed in the 9 Oct review; branch regression test added | Pass for that test input; not a full benchmark |
+| FR-03: negation | "The lecturer is not punctual." | Lecturer Punctuality negative | The 9 Oct live inspection observed a positive aspect result; branch lexicon/polarity regression now passes | Prior live failure; redeployment verification pending |
+| FR-03: unmatched input | "The classroom walls are blue." | No aspects and insufficient evidence; no neutral composite should be inferred | Branch test validates the actual analysis function | Pass in branch test; live retest pending |
+| FR-04: classifier comparison | Open the Model Evaluation page | Clearly labelled SVM/NB metrics, matrices, and per-class support | Page and metrics were visible in the 9 Oct review; the revised branch adds support and label-order metadata | Display feature; reproducibility audit pending |
+| FR-05: lecturer report | View a report with ties and zero counts | Table and prose agree; ties are balanced; zero counts are insufficient evidence | Branch summary logic and tests added after review identified contradictions | Pass in branch test; live retest pending |
+| FR-06: dashboard | Open dashboard and reconcile totals against database rows | Counts, charts and displayed summaries agree with persisted data | Dashboard rendering observed; full database reconciliation not performed | Not verified fully |
+| FR-07: role restrictions | Login as Lecturer A and request Lecturer B's report URL directly | Access to another lecturer's report is denied | Code check exists; no authorised two-account penetration test recorded | Not verified end-to-end |
+| FR-08: export | Export one lecturer report to CSV and inspect file contents | Valid CSV with expected fields and no unintended identity fields | CSV control observed; export was not executed during the review | Not verified end-to-end |
+
+The table intentionally distinguishes code-level test outcomes from actions not performed on the live deployment. A reviewer should not see "Pass" for an upload, export, persistence, or access-control test unless the corresponding test has actually been executed and recorded.
+
+## 7. Pilot user feedback (RQ4)
+
+No pilot user feedback is recorded in this repository. RQ4 remains unanswered until two or three lecturers, departmental colleagues, or supervisors actually use the dashboard and provide feedback. Do not write hypothetical comments as if they were observed results.
+
+Suggested small pilot protocol:
+1. Obtain permission from the participants and explain that this is a prototype demonstration using synthetic data; collect no sensitive student or staff information.
+2. Ask each participant to complete the same tasks: locate a lecturer report, interpret one aspect table, identify what "Insufficient evidence" means, and locate the model-evaluation comparison.
+3. Ask the same short questions: Which part was clearest? Which result was confusing? Would the report help structure a discussion about teaching? What could mislead a reader? What change is most important?
+4. Record date, participant role (not name), task completion, verbatim notes only with permission, and the researcher's themes. Report the number of participants and state that this is an informal formative pilot, not a validated usability study.
+5. If no session is completed before submission, retain RQ4 as unanswered and describe the protocol as planned work.
+
+## 8. Performance, security, and generalisation boundaries
+
+The stored metrics include a local model-training runtime of 63.12 seconds, but the available record does not document the machine configuration. This value is not production request latency and is not evidence that the deployed service meets a performance objective. Per-request inference latency, persistence across restarts, import/export correctness, backup recovery, and direct-URL access-control testing require separate measured tests.
+
+The prototype must not be described as ready for high-stakes employment decisions or university-wide adoption. Synthetic labels, template overlap, neutral-class errors, heuristic aspect extraction, unvalidated composite weights, missing real-user evaluation, and lack of authentic-data transfer testing remain material limitations.
+
+## 9. Versioning and reproducibility record
+
+For every final experiment, archive together:
+- dataset version and SHA-256 checksums;
+- generator version and seed;
+- train/validation/test row IDs and class counts;
+- exact preprocessing and TF-IDF settings;
+- model hyperparameters and selected validation metric;
+- confusion matrices, per-class precision/recall/F1/support, and test sample counts;
+- package versions, machine specification, and runtime;
+- phrase-template holdout IDs and overlap assertions;
+- application commit SHA used for functional tests.
+
+A displayed metric is not a complete experiment record. The deployed app, repository code, saved models, metric JSON, and thesis tables must all refer to the same documented experiment version.
