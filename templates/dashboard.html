@@ -65,9 +65,10 @@
 {% block content %}
 <div class="header">
     <h1>Institutional Performance Dashboard</h1>
-    <p>Complementary Student Evaluation of Teaching (SET) Ratings &amp; Sentiment Analytics</p>
+    <p>Complementary Student Evaluation of Teaching (SET) Ratings & Sentiment Analytics</p>
 </div>
 
+{# Analytics scope toggle for administrators #}
 {% if session.get('user_role') == 'administrator' %}
 <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
