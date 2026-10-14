@@ -142,7 +142,7 @@ INSUFFICIENT = "insufficient_evidence"
 ASPECT_STATUS_LABELS = {
     "strength": "Strength Area",
     "improvement": "Improvement Area",
-    "balanced": "Balanced / Neutral",
+    "balanced": "Mixed evidence",
     "insufficient": "Insufficient evidence",
 }
 
