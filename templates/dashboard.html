@@ -99,29 +99,6 @@
     </strong>
 </div>
 
-<script>
-function setScope(scope) {
-    fetch('/admin/set-analytics-scope', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ scope: scope })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Failed to update scope: ' + data.error);
-        }
-    })
-    .catch(error => {
-        alert('Error: ' + error);
-    });
-}
-</script>
-
 <!-- KPI SUMMARY CARDS -->
 <div class="kpi-grid">
     <div class="kpi-card">
@@ -272,5 +249,28 @@ new Chart(barCtx, {
         }
     }
 });
+</script>
+
+<script>
+function setScope(scope) {
+    fetch('/admin/set-analytics-scope', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ scope: scope })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed to update scope: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+    });
+}
 </script>
 {% endblock %}
