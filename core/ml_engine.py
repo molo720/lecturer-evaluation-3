@@ -264,16 +264,16 @@ def _signed_to_label(mean_score):
     return "neutral"
 
 
-def classify_aspect_status(counts):
-    """Same decision rule as the lecturer-report aspect table."""
+def classify_aspect_status(counts, margin=2):
+    """Classify an aspect only when positive/negative evidence differs by at least margin mentions."""
     pos = int((counts or {}).get("positive", 0) or 0)
     neu = int((counts or {}).get("neutral", 0) or 0)
     neg = int((counts or {}).get("negative", 0) or 0)
     if pos + neu + neg == 0:
         return "insufficient"
-    if pos > neg:
+    if pos - neg >= margin:
         return "strength"
-    if neg > pos:
+    if neg - pos >= margin:
         return "improvement"
     return "balanced"
 
@@ -426,10 +426,10 @@ def generate_textual_summary(aspect_counts, overall_sentiment=None):
         paragraphs.append(f"Core teaching strengths commended by students include: {', '.join(strengths)}.")
     if weaknesses:
         paragraphs.append(
-            f"Identified developmental priorities for departmental improvement include: {', '.join(weaknesses)}."
+            f"Potential developmental priorities supported by a margin of at least two mentions include: {', '.join(weaknesses)}."
         )
     elif evidenced:
-        paragraphs.append("No critical aspect-level deficiencies were highlighted across student submissions.")
+        paragraphs.append("No aspect met the threshold for a clear improvement priority; this does not establish that no deficiencies exist.")
 
     if balanced:
         paragraphs.append(
