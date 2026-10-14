@@ -533,33 +533,47 @@ def fit_best_document_models(X_train, X_val, X_test, y_train, y_val, y_test):
     dummy.fit(X_train_vec, y_train)
     dummy_acc = accuracy_score(y_test, dummy.predict(X_test_vec))
 
-    best_svm_c, best_svm_f1 = 1.0, -1.0
+    # Compare standard and class-weighted variants using validation Macro-F1.
+    best_svm_c, best_svm_weight, best_svm_f1 = 1.0, None, -1.0
     for C in (0.5, 1.0, 2.0):
-        cand = LinearSVC(C=C, max_iter=5000, random_state=42)
-        cand.fit(X_train_vec, y_train)
-        f1 = score_macro_f1(y_val, cand.predict(X_val_vec))
-        print(f"  SVM validation Macro-F1 (C={C}): {f1:.4f}", flush=True)
-        if f1 > best_svm_f1:
-            best_svm_c, best_svm_f1 = C, f1
+        for class_weight in (None, "balanced"):
+            cand = LinearSVC(C=C, class_weight=class_weight, max_iter=5000, random_state=42)
+            cand.fit(X_train_vec, y_train)
+            f1 = score_macro_f1(y_val, cand.predict(X_val_vec))
+            print(f"  SVM validation Macro-F1 (C={C}, class_weight={class_weight}): {f1:.4f}", flush=True)
+            if f1 > best_svm_f1:
+                best_svm_c, best_svm_weight, best_svm_f1 = C, class_weight, f1
 
-    best_nb_alpha, best_nb_f1 = 0.5, -1.0
+    # Inverse-frequency sample weights give underrepresented labels more influence.
+    train_counts = pd.Series(y_train).value_counts()
+    nb_weights = np.array([len(y_train) / (len(train_counts) * train_counts[label]) for label in y_train], dtype=float)
+    best_nb_alpha, best_nb_weighted, best_nb_f1 = 0.5, False, -1.0
     for alpha in (0.1, 0.5, 1.0):
-        cand = MultinomialNB(alpha=alpha)
-        cand.fit(X_train_vec, y_train)
-        f1 = score_macro_f1(y_val, cand.predict(X_val_vec))
-        print(f"  Naive Bayes validation Macro-F1 (alpha={alpha}): {f1:.4f}", flush=True)
-        if f1 > best_nb_f1:
-            best_nb_alpha, best_nb_f1 = alpha, f1
+        for use_class_weights in (False, True):
+            cand = MultinomialNB(alpha=alpha)
+            if use_class_weights:
+                cand.fit(X_train_vec, y_train, sample_weight=nb_weights)
+            else:
+                cand.fit(X_train_vec, y_train)
+            f1 = score_macro_f1(y_val, cand.predict(X_val_vec))
+            print(f"  Naive Bayes validation Macro-F1 (alpha={alpha}, class_weighted={use_class_weights}): {f1:.4f}", flush=True)
+            if f1 > best_nb_f1:
+                best_nb_alpha, best_nb_weighted, best_nb_f1 = alpha, use_class_weights, f1
 
-    svm = LinearSVC(C=best_svm_c, max_iter=5000, random_state=42)
+    svm = LinearSVC(C=best_svm_c, class_weight=best_svm_weight, max_iter=5000, random_state=42)
     svm.fit(X_trainval_vec, y_trainval)
     nb = MultinomialNB(alpha=best_nb_alpha)
-    nb.fit(X_trainval_vec, y_trainval)
+    if best_nb_weighted:
+        trainval_counts = pd.Series(y_trainval).value_counts()
+        nb_weights_trainval = np.array([len(y_trainval) / (len(trainval_counts) * trainval_counts[label]) for label in y_trainval], dtype=float)
+        nb.fit(X_trainval_vec, y_trainval, sample_weight=nb_weights_trainval)
+    else:
+        nb.fit(X_trainval_vec, y_trainval)
 
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     try:
         svm_cv = cross_val_score(
-            LinearSVC(C=best_svm_c, max_iter=5000, random_state=42),
+            LinearSVC(C=best_svm_c, class_weight=best_svm_weight, max_iter=5000, random_state=42),
             X_train_vec, y_train, cv=cv, scoring="f1_macro"
         )
         nb_cv = cross_val_score(
@@ -574,10 +588,12 @@ def fit_best_document_models(X_train, X_val, X_test, y_train, y_val, y_test):
     svm_metrics = classify_metrics(y_test, svm.predict(X_test_vec))
     nb_metrics = classify_metrics(y_test, nb.predict(X_test_vec))
     svm_metrics["selected_C"] = best_svm_c
+    svm_metrics["selected_class_weight"] = best_svm_weight or "none"
     svm_metrics["validation_macro_f1"] = round(best_svm_f1, 4)
     svm_metrics["cv_macro_f1_mean"] = round(svm_cv_mean, 4)
     svm_metrics["cv_macro_f1_std"] = round(svm_cv_std, 4)
     nb_metrics["selected_alpha"] = best_nb_alpha
+    nb_metrics["class_weighted_training"] = bool(best_nb_weighted)
     nb_metrics["validation_macro_f1"] = round(best_nb_f1, 4)
     nb_metrics["cv_macro_f1_mean"] = round(nb_cv_mean, 4)
     nb_metrics["cv_macro_f1_std"] = round(nb_cv_std, 4)
