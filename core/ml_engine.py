@@ -188,6 +188,26 @@ def _keyword_encodes_negation(keyword):
     return has_negation(keyword)
 
 
+# Curated phrase variants improve lexicon coverage; extraction remains rule-based.
+ASPECT_SYNONYMS = {
+    "Teaching Clarity": {"positive": ["makes the topic understandable", "explains in simple terms", "breaks it down", "easy to grasp"], "negative": ["hard to grasp", "leaves us confused", "cannot follow the lesson"], "neutral": ["average explanation"]},
+    "Course Organisation": {"positive": ["well planned course", "topics follow a sequence"], "negative": ["poorly planned course", "topics are all over the place", "no course structure"], "neutral": ["usual course structure"]},
+    "Assessment and Grading": {"positive": ["marks fairly", "assessment is fair", "grading criteria are clear"], "negative": ["marks unfairly", "assessment is unfair", "grading criteria are unclear"], "neutral": ["ordinary grading system"]},
+    "Lecturer Punctuality": {"positive": ["shows up on time", "begins class on time"], "negative": ["shows up late", "starts class late", "often absent from class"], "neutral": ["usually starts around the scheduled time"]},
+    "Availability": {"positive": ["easy to contact", "helps outside class", "welcomes students for help"], "negative": ["hard to contact", "does not make time for students", "avoids students"], "neutral": ["available by appointment"]},
+    "Communication": {"positive": ["keeps us updated", "answers messages quickly", "communicates clearly"], "negative": ["leaves messages unanswered", "does not keep us informed", "communicates poorly"], "neutral": ["shares routine announcements"]},
+    "Student Interaction": {"positive": ["involves the class", "welcomes contributions", "encourages class discussion"], "negative": ["talks at students", "shuts down questions", "does not involve the class"], "neutral": ["limited class discussion"]},
+    "Use of Teaching Materials": {"positive": ["provides useful resources", "shares learning materials", "notes are useful"], "negative": ["materials are outdated", "does not provide notes", "resources are not useful"], "neutral": ["uses standard resources"]},
+}
+
+def _expanded_aspect_keywords(aspect_name, keywords):
+    """Return base lexicon plus curated synonyms for the selected aspect."""
+    expanded = {polarity: list(phrases) for polarity, phrases in (keywords or {}).items()}
+    for polarity, phrases in ASPECT_SYNONYMS.get(aspect_name, {}).items():
+        expanded.setdefault(polarity, [])
+        expanded[polarity].extend(phrase for phrase in phrases if phrase not in expanded[polarity])
+    return expanded
+
 def _tokens(text):
     return re.findall(r"\b\w+\b", text.lower())
 
@@ -311,7 +331,7 @@ def run_analysis_cached(comment_text, rating_val):
     aspect_results = []
 
     for aspect in ASPECTS:
-        keywords = ASPECT_KEYWORDS.get(aspect, {})
+        keywords = _expanded_aspect_keywords(aspect, ASPECT_KEYWORDS.get(aspect, {}))
         clause_hits = []
         for orig_c in clauses:
             hit = find_best_keyword(orig_c, keywords)
