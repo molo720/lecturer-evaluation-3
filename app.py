@@ -58,10 +58,8 @@ def ensure_training_data_imported():
     training_count = db.execute("SELECT COUNT(*) FROM feedback WHERE student_name = ?", ('Training Data',)).fetchone()[0]
     if training_count == 0:
         try:
-            print("[INFO] Loading ML models for Training Data import...")
-            load_all_models()
-            print("[INFO] Importing Training Data...")
-            import_main_live_feedback(run_analysis)
+            print("[INFO] Importing Training Data (fast import, analysis on-demand)...")
+            import_main_live_feedback()
             print("[INFO] Training Data imported successfully")
             _training_data_imported = True
         except Exception as e:

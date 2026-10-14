@@ -231,7 +231,7 @@ def import_main_live_feedback(analyze_fn=None):
     - 10,000 LLM-generated evaluations
     - 1,600 template-generated evaluations
     - 2,000 slang/sarcasm evaluations
-    All marked as Training Data with stored analysis and lecturer login accounts.
+    All marked as Training Data. Analysis is done on-demand for performance.
     """
     owns_connection = False
     if has_app_context():
@@ -270,13 +270,9 @@ def import_main_live_feedback(analyze_fn=None):
                 if lecturer:
                     lecturer_names.add(lecturer)
 
-                if analyze_fn:
-                    ana = analyze_fn(comment, rating)
-                    sentiment = ana.get("document_sentiment", "neutral")
-                    aspects_json = json.dumps(ana)
-                else:
-                    sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
-                    aspects_json = None
+                # Use simple rule-based sentiment for fast import
+                sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
+                aspects_json = None  # Will be analyzed on-demand
 
                 submitted_at = (now - timedelta(days=random.randint(0, 150), seconds=random.randint(0, 86400))).strftime(
                     "%Y-%m-%d %H:%M:%S"
@@ -328,13 +324,8 @@ def import_main_live_feedback(analyze_fn=None):
                 except (TypeError, ValueError):
                     rating = 3
 
-                if analyze_fn:
-                    ana = analyze_fn(comment, rating)
-                    sentiment = ana.get("document_sentiment", "neutral")
-                    aspects_json = json.dumps(ana)
-                else:
-                    sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
-                    aspects_json = None
+                sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
+                aspects_json = None
 
                 submitted_at = (now - timedelta(days=random.randint(0, 150), seconds=random.randint(0, 86400))).strftime(
                     "%Y-%m-%d %H:%M:%S"
@@ -374,13 +365,8 @@ def import_main_live_feedback(analyze_fn=None):
                 except (TypeError, ValueError):
                     rating = 3
 
-                if analyze_fn:
-                    ana = analyze_fn(comment, rating)
-                    sentiment = ana.get("document_sentiment", "neutral")
-                    aspects_json = json.dumps(ana)
-                else:
-                    sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
-                    aspects_json = None
+                sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
+                aspects_json = None
 
                 submitted_at = (now - timedelta(days=random.randint(0, 150), seconds=random.randint(0, 86400))).strftime(
                     "%Y-%m-%d %H:%M:%S"
