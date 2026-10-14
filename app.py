@@ -474,12 +474,19 @@ def lecturer_report(lecturer_name):
      Per-lecturer summary report.
     .
     """
-    user_role = session.get('user_role', 'administrator')
+    user_role = session.get('user_role', '')
     current_lec = session.get('lecturer_name', '')
 
-    if user_role == 'lecturer' and current_lec != lecturer_name:
-        flash(f"Access restricted: As a Lecturer, you can only view personal reports for courses taught ({current_lec}).")
-        return redirect(url_for('lecturer_report', lecturer_name=current_lec))
+    if user_role == 'lecturer':
+        if not current_lec:
+            flash('Your lecturer account is not linked to a lecturer profile.')
+            return redirect(url_for('login'))
+        if current_lec != lecturer_name:
+            flash('Access restricted: you can only view your own lecturer report.')
+            return redirect(url_for('lecturer_report', lecturer_name=current_lec))
+    elif user_role != 'administrator':
+        flash('You are not authorized to view lecturer reports.')
+        return redirect(url_for('login'))
 
     db = get_db()
     where_clause, where_params = get_analytics_filter()
@@ -764,9 +771,16 @@ def export_lecturer_csv(lecturer_name):
     """ Export specific lecturer data in CSV."""
     user_role = session.get('user_role', '')
     current_lec = session.get('lecturer_name', '')
-    if user_role == 'lecturer' and current_lec != lecturer_name:
-        flash('You can export only your own evaluation report.')
-        return redirect(url_for('lecturer_report', lecturer_name=current_lec))
+    if user_role == 'lecturer':
+        if not current_lec:
+            flash('Your lecturer account is not linked to a lecturer profile.')
+            return redirect(url_for('login'))
+        if current_lec != lecturer_name:
+            flash('You can export only your own evaluation report.')
+            return redirect(url_for('lecturer_report', lecturer_name=current_lec))
+    elif user_role != 'administrator':
+        flash('You are not authorized to export lecturer reports.')
+        return redirect(url_for('login'))
     db = get_db()
     where_clause, where_params = get_analytics_filter()
     lecturer_filter = " AND lecturer_name = ?" if where_clause else "WHERE lecturer_name = ?"
