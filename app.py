@@ -38,15 +38,8 @@ MIN_PASSWORD_LENGTH = 6
 _training_data_imported = False
 
 def get_analytics_filter():
-    """Returns the WHERE clause and params for analytics scope based on settings."""
-    settings = get_site_settings()
-    scope = settings.get('analytics_scope', 'training_data')
-    if scope == 'all':
-        return "", []
-    elif scope == 'training_data':
-        return "WHERE student_name = ?", ['Training Data']
-    else:
-        return "WHERE student_name = ?", ['Training Data']
+    """Dashboard analytics are restricted to the training dataset."""
+    return "WHERE student_name = ?", ['Training Data']
 
 def ensure_training_data_imported():
     """Ensure Training Data records are imported on first run."""
