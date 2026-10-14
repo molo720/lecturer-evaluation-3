@@ -79,10 +79,10 @@
             </div>
         </div>
         <div style="display: flex; gap: 8px;">
-            <button onclick="setScope('training_data')" id="btn-training" class="btn-sm" style="background: {% if settings.analytics_scope == 'training_data' or not settings.analytics_scope %}#0ea5e9{% else %}#e2e8f0{% endif %}; color: {% if settings.analytics_scope == 'training_data' or not settings.analytics_scope %}white{% else %}#475569%}; border: none; cursor: pointer;">
+            <button onclick="setScope('training_data')" id="btn-training" class="btn-sm" style="background: {% if settings.analytics_scope == 'training_data' or not settings.analytics_scope %}#0ea5e9{% else %}#e2e8f0{% endif %}; color: {% if settings.analytics_scope == 'training_data' or not settings.analytics_scope %}white{% else %}#475569{% endif %}; border: none; cursor: pointer;">
                 Training Data (13,600)
             </button>
-            <button onclick="setScope('all')" id="btn-all" class="btn-sm" style="background: {% if settings.analytics_scope == 'all' %}#0ea5e9{% else %}#e2e8f0{% endif %}; color: {% if settings.analytics_scope == 'all' %}white{% else %}#475569%}; border: none; cursor: pointer;">
+            <button onclick="setScope('all')" id="btn-all" class="btn-sm" style="background: {% if settings.analytics_scope == 'all' %}#0ea5e9{% else %}#e2e8f0{% endif %}; color: {% if settings.analytics_scope == 'all' %}white{% else %}#475569{% endif %}; border: none; cursor: pointer;">
                 All Records
             </button>
         </div>
