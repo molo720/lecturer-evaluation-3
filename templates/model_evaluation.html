@@ -114,6 +114,30 @@
         </tbody>
     </table>
     
+    <div class="card" style="margin-top:18px;">
+      <h3>Neutral-class performance</h3>
+      <p style="font-size:13px;color:#64748b;">Neutral recall measures the proportion of genuinely neutral test comments correctly predicted as neutral. Confusion-matrix rows are true labels and columns are predicted labels.</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0;">
+      {% for model_name, model_metrics in [('SVM', svm), ('Naive Bayes', nb)] %}
+        {% set neutral = model_metrics.get('per_class_metrics', {}).get('neutral', {}) %}
+        <div style="padding:12px;border:1px solid #cbd5e1;border-radius:8px;min-width:190px;">
+          <strong>{{ model_name }} neutral recall</strong>
+          <div style="font-size:24px;font-weight:700;margin-top:4px;">{% if neutral.get('recall') is not none %}{{ (neutral.get('recall') * 100)|round(1) }}%{% else %}—{% endif %}</div>
+          <div style="font-size:12px;color:#64748b;">Neutral-class F1: {{ neutral.get('f1', '—') }}</div>
+        </div>
+      {% endfor %}
+      </div>
+      {% for model_name, model_metrics in [('SVM', svm), ('Naive Bayes', nb)] %}
+        {% set classes = model_metrics.get('classes', []) %}{% set cm = model_metrics.get('confusion_matrix', []) %}
+        {% set ns = namespace(neutral_idx=-1) %}
+        {% for label in classes %}{% if label|lower == 'neutral' %}{% set ns.neutral_idx = loop.index0 %}{% endif %}{% endfor %}
+        {% if ns.neutral_idx >= 0 and cm|length > ns.neutral_idx %}
+          <h4>{{ model_name }}: true neutral comments</h4>
+          <p style="font-size:13px;color:#475569;">Correctly predicted neutral: <strong>{{ cm[ns.neutral_idx][ns.neutral_idx] }}</strong>. {% for label in classes %}{% if loop.index0 != ns.neutral_idx %}Misclassified as {{ label|capitalize }}: <strong>{{ cm[ns.neutral_idx][loop.index0] }}</strong>{% if not loop.last %}; {% endif %}{% endif %}{% endfor %}</p>
+        {% endif %}
+      {% endfor %}
+      <p style="font-size:12px;color:#64748b;">Values come from the saved held-out test evaluation and update after model retraining.</p>
+    </div>
     {% if svm.get('confusion_matrix') %}
     <div style="margin-top: 20px;">
         <h4 style="font-size: 14px; color:#0f172a; margin-bottom: 10px;">SVM Confusion Matrix</h4>
