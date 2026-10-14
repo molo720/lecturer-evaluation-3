@@ -248,6 +248,12 @@
 </div>
 
 <div class="card">
+    <h3 style="margin-bottom: 10px; color:#0f172a;">Aspect extraction method and coverage</h3>
+    <p style="font-size:13px;color:#475569;">Aspect extraction currently uses a rule-based lexicon of aspect-specific keywords and curated phrase variants. It is not a learned sequence-labeling model, and unfamiliar wording may still be missed.</p>
+    <p style="font-size:13px;color:#475569;">When no aspect phrase is matched, the analysis reports <strong>Insufficient evidence</strong> rather than treating the missing aspect as neutral. Synonym coverage is a practical improvement, but it does not guarantee semantic understanding; validate it against manually labelled comments before claiming a measured accuracy gain.</p>
+</div>
+
+<div class="card">
     <h3 style="margin-bottom: 14px; color:#0f172a;">Aspect-level comparison</h3>
     <table>
         <thead>
