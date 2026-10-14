@@ -35,6 +35,8 @@ from core.optimizations import (
 
 MIN_PASSWORD_LENGTH = 6
 
+_training_data_imported = False
+
 def get_analytics_filter():
     """Returns the WHERE clause and params for analytics scope based on settings."""
     settings = get_site_settings()
@@ -45,6 +47,28 @@ def get_analytics_filter():
         return "WHERE student_name = ?", ['Training Data']
     else:
         return "WHERE student_name = ?", ['Training Data']
+
+def ensure_training_data_imported():
+    """Ensure Training Data records are imported on first run."""
+    global _training_data_imported
+    if _training_data_imported:
+        return
+
+    db = get_db()
+    training_count = db.execute("SELECT COUNT(*) FROM feedback WHERE student_name = ?", ('Training Data',)).fetchone()[0]
+    if training_count == 0:
+        try:
+            print("[INFO] Loading ML models for Training Data import...")
+            load_all_models()
+            print("[INFO] Importing Training Data...")
+            import_main_live_feedback(run_analysis)
+            print("[INFO] Training Data imported successfully")
+            _training_data_imported = True
+        except Exception as e:
+            print(f"[ERROR] Failed to import Training Data: {e}")
+    else:
+        print(f"[INFO] Training Data already present ({training_count} records)")
+        _training_data_imported = True
 
 IS_HOSTED = bool(
     os.environ.get('RAILWAY_ENVIRONMENT')
@@ -940,14 +964,27 @@ def admin_landing_settings():
             'landing_subtitle': request.form.get('landing_subtitle', ''),
             'privacy_notice': request.form.get('privacy_notice', ''),
             'custom_guidelines': request.form.get('custom_guidelines', ''),
-            'analytics_scope': request.form.get('analytics_scope', 'training_data'),
         }
         update_site_settings(new_settings)
-        invalidate_dashboard_cache()
         flash('Landing page settings have been updated.')
         return redirect(url_for('admin_landing_settings'))
     settings = get_site_settings()
     return render_template('admin_landing_settings.html', settings=settings)
+
+@app.route('/admin/set-analytics-scope', methods=['POST'])
+@admin_required
+def set_analytics_scope():
+    """API endpoint to set analytics scope."""
+    try:
+        data = request.get_json()
+        scope = data.get('scope', 'training_data')
+        if scope not in ['training_data', 'all']:
+            return {'success': False, 'error': 'Invalid scope'}
+        update_site_settings({'analytics_scope': scope})
+        invalidate_dashboard_cache()
+        return {'success': True}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
 
 @app.route('/logout')
 def logout():
@@ -966,7 +1003,7 @@ with app.app_context():
     init_db()
     load_all_models()
     seed_db_if_empty()
-    import_main_live_feedback(run_analysis)
+    ensure_training_data_imported()
     invalidate_dashboard_cache()
 
 if __name__ == '__main__':

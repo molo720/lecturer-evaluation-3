@@ -227,13 +227,12 @@ def _lecturer_username(full_name, taken):
 
 def import_main_live_feedback(analyze_fn=None):
     """
-    Loads the 10,000 synthetic SET comments into the live feedback table once,
-    with anonymous student identity, stored analysis, and lecturer login accounts.
+    Loads the full synthetic training corpus (13,600 records) into the live feedback table once:
+    - 10,000 LLM-generated evaluations
+    - 1,600 template-generated evaluations
+    - 2,000 slang/sarcasm evaluations
+    All marked as Training Data with stored analysis and lecturer login accounts.
     """
-    csv_path = data_file("nigerian_lecturer_evaluations_10000.csv")
-    if not os.path.exists(csv_path):
-        return 0
-
     owns_connection = False
     if has_app_context():
         db = get_db()
@@ -242,92 +241,174 @@ def import_main_live_feedback(analyze_fn=None):
         owns_connection = True
 
     try:
-        flag = db.execute(
-            "SELECT value FROM site_settings WHERE key = ?",
-            ("nigerian_live_imported",)
-        ).fetchone()
-        if flag and str(flag["value"]).lower() == "true":
+        # Check if Training Data is already imported
+        training_count = db.execute("SELECT COUNT(*) FROM feedback WHERE student_name = ?", ('Training Data',)).fetchone()[0]
+        if training_count >= 13000:
+            print(f"[INFO] Training Data already imported ({training_count} records), skipping...")
             return 0
-        existing = db.execute("SELECT COUNT(*) AS c FROM feedback").fetchone()["c"]
-        if existing >= 9000:
-            db.execute(
-                "INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                ("nigerian_live_imported", "true")
+
+        # Import 10,000 LLM-generated evaluations
+        llm_csv = data_file("nigerian_lecturer_evaluations_10000.csv")
+        if os.path.exists(llm_csv):
+            print("[INFO] Importing 10,000 LLM-generated evaluations...")
+            df = pd.read_csv(llm_csv)
+            now = datetime.now()
+            rows_to_insert = []
+            lecturer_names = set()
+
+            for i, row in df.iterrows():
+                comment = str(row.get("Comment") or "").strip()
+                if not comment or comment.lower() == "nan":
+                    continue
+                lecturer = str(row.get("Lecturer") or "").strip()
+                course = str(row.get("Course") or "").strip() or "Computer Science"
+                code = str(row.get("Course Code") or "").strip()
+                try:
+                    rating = int(row.get("Rating", 3))
+                except (TypeError, ValueError):
+                    rating = 3
+                if lecturer:
+                    lecturer_names.add(lecturer)
+
+                if analyze_fn:
+                    ana = analyze_fn(comment, rating)
+                    sentiment = ana.get("document_sentiment", "neutral")
+                    aspects_json = json.dumps(ana)
+                else:
+                    sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
+                    aspects_json = None
+
+                submitted_at = (now - timedelta(days=random.randint(0, 150), seconds=random.randint(0, 86400))).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                rows_to_insert.append((
+                    "Training Data", "ANON", lecturer, course, code, rating, comment,
+                    sentiment, aspects_json, submitted_at
+                ))
+                if (i + 1) % 1000 == 0:
+                    print(f"[INFO] Prepared {i + 1} LLM evaluations...", flush=True)
+
+            db.executemany(
+                '''INSERT INTO feedback (
+                    student_name, matric_number, lecturer_name, course, course_code,
+                    rating, comment, document_sentiment, aspects_json, submitted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                rows_to_insert
             )
+            print(f"[INFO] Imported {len(rows_to_insert)} LLM-generated evaluations")
+
+            # Create lecturer accounts
+            taken = {r["username"] for r in db.execute("SELECT username FROM users").fetchall()}
+            for name in sorted(lecturer_names):
+                username = _lecturer_username(name, taken)
+                taken.add(username)
+                db.execute(
+                    "INSERT OR IGNORE INTO users (username, password_hash, role, lecturer_name, full_name) VALUES (?, ?, ?, ?, ?)",
+                    (username, generate_password_hash("lecturer123"), "lecturer", name, name)
+                )
             db.commit()
-            return 0
 
-        df = pd.read_csv(csv_path)
-        now = datetime.now()
-        rows_to_insert = []
-        lecturer_names = set()
+        # Import 1,600 template-generated evaluations
+        template_csv = data_file("synthetic_evaluations.csv")
+        if os.path.exists(template_csv):
+            print("[INFO] Importing 1,600 template-generated evaluations...")
+            df = pd.read_csv(template_csv)
+            now = datetime.now()
+            rows_to_insert = []
 
-        for i, row in df.iterrows():
-            comment = str(row.get("Comment") or "").strip()
-            if not comment or comment.lower() == "nan":
-                continue
-            lecturer = str(row.get("Lecturer") or "").strip()
-            course = str(row.get("Course") or "").strip() or "Computer Science"
-            code = str(row.get("Course Code") or "").strip()
-            try:
-                rating = int(row.get("Rating", 3))
-            except (TypeError, ValueError):
-                rating = 3
-            if lecturer:
-                lecturer_names.add(lecturer)
+            for i, row in df.iterrows():
+                comment = str(row.get("comment") or "").strip()
+                if not comment or comment.lower() == "nan":
+                    continue
+                lecturer = str(row.get("lecturer_name") or "").strip() or "Dr. Okafor"
+                course = str(row.get("course") or "").strip() or "Computer Science"
+                code = str(row.get("course_code") or "").strip() or "CSC"
+                try:
+                    rating = int(row.get("rating", 3))
+                except (TypeError, ValueError):
+                    rating = 3
 
-            if analyze_fn:
-                ana = analyze_fn(comment, rating)
-                sentiment = ana.get("document_sentiment", "neutral")
-                aspects_json = json.dumps(ana)
-            else:
-                sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
-                aspects_json = None
+                if analyze_fn:
+                    ana = analyze_fn(comment, rating)
+                    sentiment = ana.get("document_sentiment", "neutral")
+                    aspects_json = json.dumps(ana)
+                else:
+                    sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
+                    aspects_json = None
 
-            submitted_at = (now - timedelta(days=random.randint(0, 150), seconds=random.randint(0, 86400))).strftime(
-                "%Y-%m-%d %H:%M:%S"
+                submitted_at = (now - timedelta(days=random.randint(0, 150), seconds=random.randint(0, 86400))).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                rows_to_insert.append((
+                    "Training Data", "ANON", lecturer, course, code, rating, comment,
+                    sentiment, aspects_json, submitted_at
+                ))
+
+            db.executemany(
+                '''INSERT INTO feedback (
+                    student_name, matric_number, lecturer_name, course, course_code,
+                    rating, comment, document_sentiment, aspects_json, submitted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                rows_to_insert
             )
-            rows_to_insert.append((
-                "Anonymous", "ANON", lecturer, course, code, rating, comment,
-                sentiment, aspects_json, submitted_at
-            ))
-            if (i + 1) % 1000 == 0:
-                print(f"[INFO] Prepared {i + 1} synthetic live evaluations...", flush=True)
+            print(f"[INFO] Imported {len(rows_to_insert)} template-generated evaluations")
+            db.commit()
 
-        db.executemany(
-            '''INSERT INTO feedback (
-                student_name, matric_number, lecturer_name, course, course_code,
-                rating, comment, document_sentiment, aspects_json, submitted_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-            rows_to_insert
-        )
+        # Import 2,000 slang/sarcasm evaluations
+        slang_csv = data_file("nigerian_slang_dataset.csv")
+        if os.path.exists(slang_csv):
+            print("[INFO] Importing 2,000 slang/sarcasm evaluations...")
+            df = pd.read_csv(slang_csv)
+            now = datetime.now()
+            rows_to_insert = []
 
-        taken = {r["username"] for r in db.execute("SELECT username FROM users").fetchall()}
-        created = []
-        for name in sorted(lecturer_names):
-            username = _lecturer_username(name, taken)
-            taken.add(username)
-            db.execute(
-                "INSERT INTO users (username, password_hash, role, lecturer_name, full_name) VALUES (?, ?, ?, ?, ?)",
-                (username, generate_password_hash("lecturer123"), "lecturer", name, name)
+            for i, row in df.iterrows():
+                comment = str(row.get("comment") or "").strip()
+                if not comment or comment.lower() == "nan":
+                    continue
+                lecturer = str(row.get("lecturer_name") or "").strip() or "Dr. Okafor"
+                course = str(row.get("course") or "").strip() or "Computer Science"
+                code = str(row.get("course_code") or "").strip() or "CSC"
+                try:
+                    rating = int(row.get("rating", 3))
+                except (TypeError, ValueError):
+                    rating = 3
+
+                if analyze_fn:
+                    ana = analyze_fn(comment, rating)
+                    sentiment = ana.get("document_sentiment", "neutral")
+                    aspects_json = json.dumps(ana)
+                else:
+                    sentiment = "negative" if rating <= 2 else ("positive" if rating >= 4 else "neutral")
+                    aspects_json = None
+
+                submitted_at = (now - timedelta(days=random.randint(0, 150), seconds=random.randint(0, 86400))).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                rows_to_insert.append((
+                    "Training Data", "ANON", lecturer, course, code, rating, comment,
+                    sentiment, aspects_json, submitted_at
+                ))
+
+            db.executemany(
+                '''INSERT INTO feedback (
+                    student_name, matric_number, lecturer_name, course, course_code,
+                    rating, comment, document_sentiment, aspects_json, submitted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                rows_to_insert
             )
-            created.append((username, name))
+            print(f"[INFO] Imported {len(rows_to_insert)} slang/sarcasm evaluations")
+            db.commit()
 
-        db.execute(
-            "INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            ("nigerian_live_imported", "true")
-        )
-        db.commit()
-        print(
-            f"[INFO] Imported {len(rows_to_insert)} synthetic live evaluations and {len(created)} lecturer accounts.",
-            flush=True
-        )
-        return len(rows_to_insert)
-    except Exception:
+        total_training = db.execute("SELECT COUNT(*) FROM feedback WHERE student_name = ?", ('Training Data',)).fetchone()[0]
+        print(f"[INFO] Total Training Data imported: {total_training} records", flush=True)
+        return total_training
+    except Exception as e:
         try:
             db.rollback()
         except Exception:
             pass
+        print(f"[ERROR] Failed to import Training Data: {e}")
         raise
     finally:
         if owns_connection:

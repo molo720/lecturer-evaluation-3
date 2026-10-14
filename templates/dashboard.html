@@ -68,6 +68,27 @@
     <p>Complementary Student Evaluation of Teaching (SET) Ratings &amp; Sentiment Analytics</p>
 </div>
 
+{% if session.get('user_role') == 'administrator' %}
+<div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <strong style="color: #0f172a; font-size: 14px;">Analytics Data Scope</strong>
+            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                Select which records to include in dashboard metrics and reports
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button onclick="setScope('training_data')" id="btn-training" class="btn-sm" style="background: {% if settings.analytics_scope == 'training_data' or not settings.analytics_scope %}#0ea5e9{% else %}#e2e8f0{% endif %}; color: {% if settings.analytics_scope == 'training_data' or not settings.analytics_scope %}white{% else %}#475569%}; border: none; cursor: pointer;">
+                Training Data (13,600)
+            </button>
+            <button onclick="setScope('all')" id="btn-all" class="btn-sm" style="background: {% if settings.analytics_scope == 'all' %}#0ea5e9{% else %}#e2e8f0{% endif %}; color: {% if settings.analytics_scope == 'all' %}white{% else %}#475569%}; border: none; cursor: pointer;">
+                All Records
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; text-align: center;">
     <strong style="color: #92400e; font-size: 14px;">
         {% if settings.analytics_scope == 'all' %}
@@ -76,12 +97,30 @@
             All figures are based on synthetic (LLM + template) evaluations
         {% endif %}
     </strong>
-    {% if session.get('user_role') == 'administrator' %}
-    <div style="margin-top: 8px; font-size: 12px; color: #b45309;">
-        Current scope: <strong>{{ settings.analytics_scope|default('training_data') }}</strong> — <a href="{{ url_for('admin_landing_settings') }}" style="color: #b45309; text-decoration: underline;">Change settings</a>
-    </div>
-    {% endif %}
 </div>
+
+<script>
+function setScope(scope) {
+    fetch('/admin/set-analytics-scope', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ scope: scope })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed to update scope: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+    });
+}
+</script>
 
 <!-- KPI SUMMARY CARDS -->
 <div class="kpi-grid">
