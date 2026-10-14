@@ -970,6 +970,7 @@ def admin_landing_settings():
     return render_template('admin_landing_settings.html', settings=settings)
 
 @app.route('/admin/set-analytics-scope', methods=['POST'])
+@csrf.exempt
 @admin_required
 def set_analytics_scope():
     """API endpoint to set analytics scope."""
