@@ -24,7 +24,7 @@ from core.db import (
     get_db, init_db, get_lecturer_names, seed_db_if_empty,
     get_site_settings, update_site_settings, DATABASE_PATH,
     data_file,
-    import_nigerian_live_feedback
+    import_main_live_feedback
 )
 from core.ml_engine import (
     load_all_models, run_analysis, generate_textual_summary, aspect_status_map, ASPECT_STATUS_LABELS
@@ -34,6 +34,17 @@ from core.optimizations import (
 )
 
 MIN_PASSWORD_LENGTH = 6
+
+def get_analytics_filter():
+    """Returns the WHERE clause and params for analytics scope based on settings."""
+    settings = get_site_settings()
+    scope = settings.get('analytics_scope', 'training_data')
+    if scope == 'all':
+        return "", []
+    elif scope == 'training_data':
+        return "WHERE student_name = ?", ['Training Data']
+    else:
+        return "WHERE student_name = ?", ['Training Data']
 
 IS_HOSTED = bool(
     os.environ.get('RAILWAY_ENVIRONMENT')
@@ -280,10 +291,12 @@ def dashboard():
 
     cached_data = get_cached_dashboard()
     if cached_data:
+        cached_data['settings'] = get_site_settings()
         return render_template('dashboard.html', **cached_data)
 
     db = get_db()
-    rows = db.execute('SELECT * FROM feedback').fetchall()
+    where_clause, where_params = get_analytics_filter()
+    rows = db.execute(f'SELECT * FROM feedback {where_clause}', where_params).fetchall()
 
     lecturer_map = {}
     sentiment_dist = {"positive": 0, "neutral": 0, "negative": 0}
@@ -371,7 +384,8 @@ def dashboard():
         'total': total,
         'stats': stats,
         'lecturer_table': lecturer_table,
-        'chart_data': chart_data
+        'chart_data': chart_data,
+        'settings': get_site_settings()
     }
     set_cached_dashboard(render_context)
     return render_template('dashboard.html', **render_context)
@@ -453,7 +467,11 @@ def lecturer_report(lecturer_name):
         return redirect(url_for('lecturer_report', lecturer_name=current_lec))
 
     db = get_db()
-    rows = db.execute('SELECT * FROM feedback WHERE lecturer_name = ? ORDER BY submitted_at DESC', (lecturer_name,)).fetchall()
+    where_clause, where_params = get_analytics_filter()
+    lecturer_filter = " AND lecturer_name = ?" if where_clause else "WHERE lecturer_name = ?"
+    full_where = f"{where_clause}{lecturer_filter}" if where_clause else lecturer_filter
+    full_params = where_params + [lecturer_name]
+    rows = db.execute(f'SELECT * FROM feedback {full_where} ORDER BY submitted_at DESC', full_params).fetchall()
 
     total = len(rows)
     ratings = [r['rating'] for r in rows]
@@ -527,7 +545,11 @@ def lecturer_report(lecturer_name):
 def course_report(course_name):
     """ Per-course summary report."""
     db = get_db()
-    rows = db.execute('SELECT * FROM feedback WHERE course = ? ORDER BY submitted_at DESC', (course_name,)).fetchall()
+    where_clause, where_params = get_analytics_filter()
+    course_filter = " AND course = ?" if where_clause else "WHERE course = ?"
+    full_where = f"{where_clause}{course_filter}" if where_clause else course_filter
+    full_params = where_params + [course_name]
+    rows = db.execute(f'SELECT * FROM feedback {full_where} ORDER BY submitted_at DESC', full_params).fetchall()
 
     total = len(rows)
     ratings = [r['rating'] for r in rows]
@@ -579,8 +601,12 @@ def feedback_list():
     q = (request.args.get('q') or '').strip()
     lecturer = (request.args.get('lecturer') or '').strip()
 
+    where_clause, where_params = get_analytics_filter()
     where_clauses = []
     params = []
+    if where_clause:
+        where_clauses.append(where_clause.replace("WHERE ", ""))
+        params.extend(where_params)
     if q:
         where_clauses.append("(comment LIKE ? OR course LIKE ? OR course_code LIKE ?)")
         params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
@@ -679,7 +705,7 @@ def upload():
                             db.execute('''
                                 INSERT INTO feedback (student_name, matric_number, lecturer_name, course, course_code, rating, comment, document_sentiment)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                            ''', ("Anonymous", "ANON", lec, crs, cdc, r_val, c_text, analysis['document_sentiment']))
+                            ''', ("Training Data", "ANON", lec, crs, cdc, r_val, c_text, analysis['document_sentiment']))
 
                             if len(results) < 15:
                                 analysis['lecturer'] = lec
@@ -702,7 +728,8 @@ def upload():
 def export_csv():
 
     db = get_db()
-    rows = db.execute('SELECT * FROM feedback ORDER BY submitted_at DESC').fetchall()
+    where_clause, where_params = get_analytics_filter()
+    rows = db.execute(f'SELECT * FROM feedback {where_clause} ORDER BY submitted_at DESC', where_params).fetchall()
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['ID', 'Date', 'Lecturer', 'Course', 'Course Code', 'SET Rating', 'Document Sentiment', 'Comment'])
@@ -726,7 +753,11 @@ def export_lecturer_csv(lecturer_name):
         flash('You can export only your own evaluation report.')
         return redirect(url_for('lecturer_report', lecturer_name=current_lec))
     db = get_db()
-    rows = db.execute('SELECT * FROM feedback WHERE lecturer_name = ? ORDER BY submitted_at DESC', (lecturer_name,)).fetchall()
+    where_clause, where_params = get_analytics_filter()
+    lecturer_filter = " AND lecturer_name = ?" if where_clause else "WHERE lecturer_name = ?"
+    full_where = f"{where_clause}{lecturer_filter}" if where_clause else lecturer_filter
+    full_params = where_params + [lecturer_name]
+    rows = db.execute(f'SELECT * FROM feedback {full_where} ORDER BY submitted_at DESC', full_params).fetchall()
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['ID', 'Date', 'Lecturer', 'Course', 'Course Code', 'SET Rating', 'Document Sentiment', 'Comment'])
@@ -903,14 +934,16 @@ def admin_landing_settings():
     """Admin page to customize the landing page content."""
     if request.method == 'POST':
         new_settings = {
-            'portal_title': request.form.get('portal_title', ''),
-            'portal_subtitle': request.form.get('portal_subtitle', ''),
-            'announcement_text': request.form.get('announcement_text', ''),
-            'announcement_enabled': '1' if request.form.get('announcement_enabled') else '0',
+            'announcement_banner': request.form.get('announcement_banner', ''),
+            'show_announcement': 'true' if request.form.get('show_announcement') else 'false',
+            'landing_title': request.form.get('landing_title', ''),
+            'landing_subtitle': request.form.get('landing_subtitle', ''),
             'privacy_notice': request.form.get('privacy_notice', ''),
-            'guidelines': request.form.get('guidelines', ''),
+            'custom_guidelines': request.form.get('custom_guidelines', ''),
+            'analytics_scope': request.form.get('analytics_scope', 'training_data'),
         }
         update_site_settings(new_settings)
+        invalidate_dashboard_cache()
         flash('Landing page settings have been updated.')
         return redirect(url_for('admin_landing_settings'))
     settings = get_site_settings()
@@ -933,7 +966,7 @@ with app.app_context():
     init_db()
     load_all_models()
     seed_db_if_empty()
-    import_nigerian_live_feedback(run_analysis)
+    import_main_live_feedback(run_analysis)
     invalidate_dashboard_cache()
 
 if __name__ == '__main__':

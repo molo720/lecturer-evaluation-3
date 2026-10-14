@@ -3,7 +3,7 @@ import pandas as pd
 import json
 random.seed(42)
 
-# Nigerian slang and informal expressions for each aspect
+# Synthetic slang and informal expressions for each aspect
 nigerian_slang_templates = {
     "Teaching Clarity": {
         "positive": [
@@ -286,7 +286,7 @@ nigerian_slang_templates = {
     }
 }
 
-# Nigerian insults and derogatory terms (mapped to negative aspects)
+# Synthetic insults and derogatory terms (mapped to negative aspects)
 nigerian_insults = {
     "Teaching Clarity": [
         "This mumu man no sabi teach at all",
@@ -510,7 +510,7 @@ lecturers = [
 
 def generate_nigerian_slang_dataset(num_samples=2000):
     """
-    Generates dataset with Nigerian slangs, informal expressions, sarcasm, and insults.
+    Generates dataset with synthetic slangs, informal expressions, sarcasm, and insults.
     """
     aspect_list = list(nigerian_slang_templates.keys())
     records = []
@@ -610,10 +610,10 @@ def generate_nigerian_slang_dataset(num_samples=2000):
     return df
 
 if __name__ == "__main__":
-    print("Generating Nigerian slang and sarcasm dataset...")
+    print("Generating synthetic slang and sarcasm dataset...")
     df = generate_nigerian_slang_dataset(num_samples=2000)
     df.to_csv("data/nigerian_slang_dataset.csv", index=False)
-    print(f"Generated {len(df)} Nigerian slang/sarcasm records")
+    print(f"Generated {len(df)} synthetic slang/sarcasm records")
     print(f"Saved to data/nigerian_slang_dataset.csv")
     print("\nDocument sentiment distribution:")
     print(df["document_sentiment"].value_counts())

@@ -1,14 +1,14 @@
 {
   "dataset": {
-    "nigerian_records": 10000,
-    "synthetic_records": 1600,
+    "llm_generated_records": 10000,
+    "template_generated_records": 1600,
     "slang_records": 2000,
     "total_records": 13600,
     "train_size": 8160,
     "validation_size": 2720,
     "test_size": 2720,
     "split": "60% train / 20% validation / 20% test",
-    "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels; slang/sarcasm gold labels"
+    "document_label_source": "LLM-generated (Gemini) synthetic evaluations with generator-assigned labels; template-generated synthetic records with gold labels; slang/sarcasm variants with gold labels"
   },
   "document_level": {
     "majority_baseline_accuracy": 0.4441,

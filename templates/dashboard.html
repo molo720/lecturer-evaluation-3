@@ -65,7 +65,22 @@
 {% block content %}
 <div class="header">
     <h1>Institutional Performance Dashboard</h1>
-    <p>Complementary Student Evaluation of Teaching (SET) Ratings & Sentiment Analytics</p>
+    <p>Complementary Student Evaluation of Teaching (SET) Ratings &amp; Sentiment Analytics</p>
+</div>
+
+<div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; text-align: center;">
+    <strong style="color: #92400e; font-size: 14px;">
+        {% if settings.analytics_scope == 'all' %}
+            Analytics includes all records (training corpus + uploaded data + evaluations)
+        {% else %}
+            All figures are based on synthetic (LLM + template) evaluations
+        {% endif %}
+    </strong>
+    {% if session.get('user_role') == 'administrator' %}
+    <div style="margin-top: 8px; font-size: 12px; color: #b45309;">
+        Current scope: <strong>{{ settings.analytics_scope|default('training_data') }}</strong> — <a href="{{ url_for('admin_landing_settings') }}" style="color: #b45309; text-decoration: underline;">Change settings</a>
+    </div>
+    {% endif %}
 </div>
 
 <!-- KPI SUMMARY CARDS -->

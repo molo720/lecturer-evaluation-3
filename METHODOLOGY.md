@@ -6,9 +6,9 @@ This document provides detailed information about the model training methodology
 ## Dataset Composition
 
 ### Total Training Samples: 13,600
-- **Nigerian Lecturer Evaluations**: 10,000 samples
-- **Synthetic Evaluations**: 1,600 samples
-- **Nigerian Slang/Sarcasm/Insults**: 2,000 samples
+- **LLM-generated (Gemini) Synthetic Evaluations**: 10,000 samples
+- **Template-generated Synthetic Evaluations**: 1,600 samples
+- **Synthetic Slang/Sarcasm/Insults**: 2,000 samples
 
 ### Data Split
 - **Training**: 60% (8,160 samples)
@@ -131,8 +131,8 @@ All seeds are set to 42 to ensure reproducibility across training runs.
 5. **Punctuation removal**: Remove special characters and punctuation
 
 ### Document Label Source
-- **Nigerian dataset**: Rating-based labels (1-2 → negative, 3 → neutral, 4-5 → positive)
-- **Synthetic dataset**: Gold labels from template generation
+- **LLM-generated dataset**: Generator-assigned labels (synthetic)
+- **Template-generated dataset**: Gold labels from template generation
 - **Slang dataset**: Gold labels from manual annotation
 
 ## Class Counts (Document-Level)
@@ -376,7 +376,7 @@ All models saved in `models/` directory:
 To reproduce the training results:
 1. ✅ Set random seeds (random=42, numpy=42, sklearn=42)
 2. ✅ Use same package versions (requirements.txt)
-3. ✅ Use same datasets (Nigerian 10k, synthetic 1.6k, slang 2k)
+3. ✅ Use same datasets (LLM-generated 10k, template-generated 1.6k, slang 2k)
 4. ✅ Use same split ratios (60/20/20)
 5. ✅ Use same hyperparameters (C=1.0 for SVM, alpha=0.1 for NB)
 6. ✅ Use same TF-IDF settings (ngram=(1,2), max_features=50k)

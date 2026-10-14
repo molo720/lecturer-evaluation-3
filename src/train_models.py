@@ -232,7 +232,7 @@ def generate_synthetic_dataset(num_samples=1800):
     - All 8 teaching aspects
     - Document-level sentiment (positive, negative, neutral)
     - Multi-clause aspect combinations with realistic contrastive and additive connectors
-    - Nigerian university courses and lecturers
+    - Synthetic university courses and lecturers (for demonstration purposes)
     """
     courses = [
         ("CSC410", "Special Computing"),
@@ -395,7 +395,7 @@ def rating_to_sentiment(rating):
     return "neutral"
 
 
-def resolve_nigerian_csv_path():
+def resolve_main_csv_path():
     for path in NIGERIAN_CSV_CANDIDATES:
         if os.path.exists(path):
             return path
@@ -412,8 +412,8 @@ def map_aspect_name(name):
     return ASPECT_NAME_MAP.get((name or "").strip().lower())
 
 
-def load_nigerian_dataset(csv_path):
-    """Maps the Nigerian SET CSV onto the training schema used by this project."""
+def load_main_dataset(csv_path):
+    """Maps the main synthetic evaluation CSV onto the training schema used by this project."""
     raw = pd.read_csv(csv_path)
     records = []
     for i, row in raw.iterrows():
@@ -446,7 +446,7 @@ def load_nigerian_dataset(csv_path):
 
 
 def load_slang_dataset(csv_path):
-    """Loads the Nigerian slang and sarcasm dataset."""
+    """Loads the synthetic slang and sarcasm dataset."""
     if not os.path.exists(csv_path):
         print(f"[WARNING] Slang dataset not found at {csv_path}, skipping...")
         return pd.DataFrame()
@@ -604,24 +604,24 @@ def main():
     synthetic_df.to_csv("data/synthetic_evaluations.csv", index=False)
     print(f"Generated {len(synthetic_df)} synthetic evaluation records.", flush=True)
 
-    nigerian_path = resolve_nigerian_csv_path()
+    nigerian_path = resolve_main_csv_path()
     if not nigerian_path:
         raise FileNotFoundError(
-            "Nigerian evaluation CSV not found. Place it at data/nigerian_lecturer_evaluations_10000.csv "
+            "Main evaluation CSV not found. Place it at data/nigerian_lecturer_evaluations_10000.csv "
             "or c:\\Users\\USER\\Downloads\\nigerian_lecturer_evaluations_10000.csv"
         )
     local_copy = os.path.join("data", "nigerian_lecturer_evaluations_10000.csv")
     if os.path.abspath(nigerian_path) != os.path.abspath(local_copy):
         shutil.copy2(nigerian_path, local_copy)
-        print(f"Copied Nigerian dataset to {local_copy}", flush=True)
-    nigerian_df = load_nigerian_dataset(local_copy)
-    print(f"Loaded {len(nigerian_df)} Nigerian evaluation records from {local_copy}.", flush=True)
+        print(f"Copied main dataset to {local_copy}", flush=True)
+    nigerian_df = load_main_dataset(local_copy)
+    print(f"Loaded {len(nigerian_df)} main evaluation records from {local_copy}.", flush=True)
 
     # Load slang/sarcasm dataset if it exists
     slang_df = load_slang_dataset(SLANG_DATASET_PATH)
 
     # Combine all datasets
-    datasets_to_combine = [synthetic_df, nigerian_df]
+    datasets_to_combine = [synthetic_df, nigerian_df]  # nigerian_df is the main synthetic dataset
     if not slang_df.empty:
         datasets_to_combine.append(slang_df)
 
@@ -762,15 +762,15 @@ def main():
 
     metrics_data = {
         "dataset": {
-            "nigerian_records": int(len(nigerian_df)),
-            "synthetic_records": int(len(synthetic_df)),
+            "llm_generated_records": int(len(nigerian_df)),
+            "template_generated_records": int(len(synthetic_df)),
             "slang_records": int(len(slang_df)) if not slang_df.empty else 0,
             "total_records": int(len(df)),
             "train_size": int(len(X_train_d)),
             "validation_size": int(len(X_val_d)),
             "test_size": int(len(X_test_d)),
             "split": "60% train / 20% validation / 20% test",
-            "document_label_source": "Nigerian ratings 1-2 negative, 3 neutral, 4-5 positive; synthetic gold labels; slang/sarcasm gold labels",
+            "document_label_source": "Synthetic ratings 1-2 negative, 3 neutral, 4-5 positive; generator-assigned labels; slang/sarcasm synthetic labels",
         },
         "document_level": {
             "majority_baseline_accuracy": round(dummy_acc, 4),

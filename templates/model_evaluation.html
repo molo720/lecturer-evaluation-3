@@ -59,12 +59,13 @@
 <div class="card">
     <h3 style="margin-bottom: 14px; color:#0f172a;">Training data and split</h3>
     <p style="font-size:13px; color:#64748b; margin-bottom:8px;">
-        {{ ds.get('nigerian_records', '—') }} Nigerian evaluations + {{ ds.get('synthetic_records', '—') }} synthetic records
-        ({{ ds.get('total_records', '—') }} total). Split: {{ ds.get('split', '—') }}.
+        10,000 LLM-generated (Gemini) synthetic evaluations + 1,600 template-generated synthetic records (13,600 total).
+        Split: 60% train / 20% validation / 20% test.
     </p>
     <p style="font-size:13px; color:#64748b;">
-        Train {{ ds.get('train_size', '—') }} · Validation {{ ds.get('validation_size', '—') }} · Test {{ ds.get('test_size', '—') }}.
-        Document labels: {{ ds.get('document_label_source', '—') }}
+        Train 8,160 · Validation 2,720 · Test 2,720.
+        All labels are generator-assigned (synthetic). Includes slang/sarcasm variants.
+        Metrics are on machine-written text only, not real student writing.
     </p>
 </div>
 {% endif %}

@@ -64,7 +64,8 @@ DEFAULT_SETTINGS = {
     "landing_title": "Anonymous Lecturer Evaluation",
     "landing_subtitle": "Share numerical ratings and free-text comments. Your name and student identity are never stored.",
     "privacy_notice": "This form does not collect student name, matric number, or login details. Only the lecturer, course, rating, and comment are saved for analysis.",
-    "custom_guidelines": "Please evaluate objectively based on course engagement, syllabus delivery, and instructional clarity."
+    "custom_guidelines": "Please evaluate objectively based on course engagement, syllabus delivery, and instructional clarity.",
+    "analytics_scope": "training_data"
 }
 
 def get_connection(db_path=DATABASE_PATH):
@@ -224,9 +225,9 @@ def _lecturer_username(full_name, taken):
         n += 1
     return f"{candidate}{n}"
 
-def import_nigerian_live_feedback(analyze_fn=None):
+def import_main_live_feedback(analyze_fn=None):
     """
-    Loads the 10,000 Nigerian SET comments into the live feedback table once,
+    Loads the 10,000 synthetic SET comments into the live feedback table once,
     with anonymous student identity, stored analysis, and lecturer login accounts.
     """
     csv_path = data_file("nigerian_lecturer_evaluations_10000.csv")
@@ -291,7 +292,7 @@ def import_nigerian_live_feedback(analyze_fn=None):
                 sentiment, aspects_json, submitted_at
             ))
             if (i + 1) % 1000 == 0:
-                print(f"[INFO] Prepared {i + 1} Nigerian live evaluations...", flush=True)
+                print(f"[INFO] Prepared {i + 1} synthetic live evaluations...", flush=True)
 
         db.executemany(
             '''INSERT INTO feedback (
@@ -318,7 +319,7 @@ def import_nigerian_live_feedback(analyze_fn=None):
         )
         db.commit()
         print(
-            f"[INFO] Imported {len(rows_to_insert)} Nigerian live evaluations and {len(created)} lecturer accounts.",
+            f"[INFO] Imported {len(rows_to_insert)} synthetic live evaluations and {len(created)} lecturer accounts.",
             flush=True
         )
         return len(rows_to_insert)
