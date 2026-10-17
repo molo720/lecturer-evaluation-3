@@ -1,0 +1,99 @@
+name: Rerun lecturer evaluation model training
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/rerun-train-models.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install training dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pandas scikit-learn joblib nltk
+
+      - name: Run train_models.py and capture log
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u src/train_models.py 2>&1 | tee training.log
+
+      - name: Validate and summarize outputs
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          metrics_path = Path("Data/model_evaluation_metrics.json")
+          if not metrics_path.exists():
+              metrics_path = Path("data/model_evaluation_metrics.json")
+          if not metrics_path.exists():
+              raise SystemExit("Training finished without producing model_evaluation_metrics.json")
+
+          payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+          print(json.dumps({
+              "dataset": payload.get("dataset", {}),
+              "document_level": payload.get("document_level", {}),
+              "runtime": payload.get("runtime", {}),
+              "metrics_file": str(metrics_path),
+          }, indent=2))
+
+          required = [
+              Path("models/svm_document.pkl"),
+              Path("models/nb_document.pkl"),
+              Path("models/vectorizer_document.pkl"),
+              Path("Data/classification_results_summary.csv"),
+              Path("Data/model_evaluation_metrics.json"),
+          ]
+          missing = [str(p) for p in required if not p.exists()]
+          if missing:
+              lower_case_alternatives = {
+                  str(p): Path("data") / p.relative_to("Data")
+                  for p in missing if str(p).startswith("Data/")
+              }
+              missing = [
+                  str(lower_case_alternatives[m]) if m in lower_case_alternatives
+                  and lower_case_alternatives[m].exists() else m
+                  for m in missing
+              ]
+          if missing:
+              raise SystemExit("Missing expected outputs: " + ", ".join(missing))
+          PY
+
+      - name: Upload fresh training outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: train-models-results-${{ github.run_id }}
+          if-no-files-found: error
+          path: |
+            training.log
+            Data/model_evaluation_metrics.json
+            Data/classification_results_summary.csv
+            Data/preprocessed_evaluations.csv
+            Data/synthetic_evaluations.csv
+            data/model_evaluation_metrics.json
+            data/classification_results_summary.csv
+            data/preprocessed_evaluations.csv
+            data/synthetic_evaluations.csv
+            models/svm_document.pkl
+            models/nb_document.pkl
+            models/vectorizer_document.pkl
+            models/svm_*.pkl
+            models/nb_*.pkl
+            models/vectorizer_*.pkl
