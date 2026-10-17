@@ -358,12 +358,55 @@ def generate_synthetic_dataset(num_samples=1800):
     return df
 
 
-NIGERIAN_CSV_CANDIDATES = [
-    os.path.join("data", "nigerian_lecturer_evaluations_10000.csv"),
-    r"c:\Users\USER\Downloads\nigerian_lecturer_evaluations_10000.csv",
-]
+PRIMARY_DATASET_FILENAME = "nigerian_lecturer_evaluations_10000.csv"
+SLANG_DATASET_FILENAME = "nigerian_slang_dataset.csv"
+DATA_DIRECTORY_NAMES = ("Data", "data")
+LEGACY_PRIMARY_DATASET_PATH = r"c:\Users\USER\Downloads\nigerian_lecturer_evaluations_10000.csv"
 
-SLANG_DATASET_PATH = os.path.join("data", "nigerian_slang_dataset.csv")
+
+def resolve_data_directory(project_root):
+    """Resolve the project's data folder on case-sensitive and case-insensitive filesystems.
+
+    Prefer the directory containing the primary dataset, then the slang dataset.
+    The repository uses 'Data'; some local environments may use 'data'.
+    """
+    candidates = [os.path.join(project_root, name) for name in DATA_DIRECTORY_NAMES]
+
+    for filename in (PRIMARY_DATASET_FILENAME, SLANG_DATASET_FILENAME):
+        for directory in candidates:
+            if os.path.isfile(os.path.join(directory, filename)):
+                return directory
+
+    for directory in candidates:
+        if os.path.isdir(directory):
+            return directory
+
+    # Use the repository's canonical casing when no data directory exists yet.
+    os.makedirs(candidates[0], exist_ok=True)
+    return candidates[0]
+
+
+def resolve_main_csv_path(project_root):
+    """Find the primary CSV under either 'Data' or 'data', then try the legacy Windows path."""
+    for directory_name in DATA_DIRECTORY_NAMES:
+        path = os.path.join(project_root, directory_name, PRIMARY_DATASET_FILENAME)
+        if os.path.isfile(path):
+            return path
+
+    if os.path.isfile(LEGACY_PRIMARY_DATASET_PATH):
+        return LEGACY_PRIMARY_DATASET_PATH
+
+    return None
+
+
+def resolve_dataset_path(project_root, filename, fallback_directory):
+    """Find a dataset under either supported directory casing."""
+    for directory_name in DATA_DIRECTORY_NAMES:
+        path = os.path.join(project_root, directory_name, filename)
+        if os.path.isfile(path):
+            return path
+
+    return os.path.join(fallback_directory, filename)
 
 ASPECT_NAME_MAP = {
     "teaching clarity": "Teaching Clarity",
@@ -394,12 +437,6 @@ def rating_to_sentiment(rating):
         return "positive"
     return "neutral"
 
-
-def resolve_main_csv_path():
-    for path in NIGERIAN_CSV_CANDIDATES:
-        if os.path.exists(path):
-            return path
-    return None
 
 
 def parse_primary_aspects(raw):
@@ -611,30 +648,35 @@ def main():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(project_root)
     
-    os.makedirs("data", exist_ok=True)
+    data_dir = resolve_data_directory(project_root)
+    os.makedirs(data_dir, exist_ok=True)
     os.makedirs("models", exist_ok=True)
+    print(f"Using data directory: {data_dir}", flush=True)
 
     print("\n[STEP 1/5] Building combined training corpus...", flush=True)
     synthetic_df = generate_synthetic_dataset(num_samples=1600)
     synthetic_df["source"] = "synthetic"
-    synthetic_df.to_csv("data/synthetic_evaluations.csv", index=False)
-    print(f"Generated {len(synthetic_df)} synthetic evaluation records.", flush=True)
+    synthetic_output_path = os.path.join(data_dir, "synthetic_evaluations.csv")
+    synthetic_df.to_csv(synthetic_output_path, index=False)
+    print(f"Generated {len(synthetic_df)} synthetic evaluation records at {synthetic_output_path}.", flush=True)
 
-    nigerian_path = resolve_main_csv_path()
+    nigerian_path = resolve_main_csv_path(project_root)
     if not nigerian_path:
         raise FileNotFoundError(
-            "Main evaluation CSV not found. Place it at data/nigerian_lecturer_evaluations_10000.csv "
-            "or c:\\Users\\USER\\Downloads\\nigerian_lecturer_evaluations_10000.csv"
+            "Main evaluation CSV not found. Place it at "
+            "'Data/nigerian_lecturer_evaluations_10000.csv' or "
+            "'data/nigerian_lecturer_evaluations_10000.csv'."
         )
-    local_copy = os.path.join("data", "nigerian_lecturer_evaluations_10000.csv")
-    if os.path.abspath(nigerian_path) != os.path.abspath(local_copy):
+    local_copy = os.path.join(data_dir, PRIMARY_DATASET_FILENAME)
+    if os.path.normcase(os.path.abspath(nigerian_path)) != os.path.normcase(os.path.abspath(local_copy)):
         shutil.copy2(nigerian_path, local_copy)
         print(f"Copied main dataset to {local_copy}", flush=True)
     nigerian_df = load_main_dataset(local_copy)
     print(f"Loaded {len(nigerian_df)} main evaluation records from {local_copy}.", flush=True)
 
-    # Load slang/sarcasm dataset if it exists
-    slang_df = load_slang_dataset(SLANG_DATASET_PATH)
+    # Load slang/sarcasm data from whichever directory casing is present.
+    slang_path = resolve_dataset_path(project_root, SLANG_DATASET_FILENAME, data_dir)
+    slang_df = load_slang_dataset(slang_path)
 
     # Combine all datasets
     datasets_to_combine = [synthetic_df, nigerian_df]  # nigerian_df is the main synthetic dataset
@@ -647,8 +689,8 @@ def main():
 
     print("\n[STEP 2/5] Running preprocessing pipeline (cleaning, contractions, stemming)...", flush=True)
     df["preprocessed_comment"] = df["comment"].apply(preprocess_for_vectorizer)
-    df.to_csv("data/preprocessed_evaluations.csv", index=False)
-    print("Preprocessing completed and saved to data/preprocessed_evaluations.csv.", flush=True)
+    df.to_csv(os.path.join(data_dir, "preprocessed_evaluations.csv"), index=False)
+    print(f"Preprocessing completed and saved to {os.path.join(data_dir, 'preprocessed_evaluations.csv')}.", flush=True)
 
     print("\n[STEP 3/5] Training document-level classifiers (train / validate / test)...", flush=True)
     X_doc = df["preprocessed_comment"].values
@@ -768,7 +810,7 @@ def main():
     asp_results_df = pd.DataFrame(aspect_metrics)
     print("\nAspect-level test evaluation summary:", flush=True)
     print(asp_results_df.to_string(index=False), flush=True)
-    asp_results_df.to_csv("data/classification_results_summary.csv", index=False)
+    asp_results_df.to_csv(os.path.join(data_dir, "classification_results_summary.csv"), index=False)
 
     print("\n[STEP 5/5] Saving detailed metrics for the evaluation dashboard...", flush=True)
 
@@ -801,10 +843,10 @@ def main():
         }
     }
 
-    with open("data/model_evaluation_metrics.json", "w") as f:
+    with open(os.path.join(data_dir, "model_evaluation_metrics.json"), "w", encoding="utf-8") as f:
         json.dump(metrics_data, f, indent=2)
 
-    print("Model metrics saved to data/model_evaluation_metrics.json.", flush=True)
+    print(f"Model metrics saved to {os.path.join(data_dir, 'model_evaluation_metrics.json')}.", flush=True)
     print("=" * 70, flush=True)
     print("   ALL MODELS TRAINED AND SAVED SUCCESSFULLY!", flush=True)
     print(f"   Total training time: {runtime_seconds:.2f} seconds ({runtime_minutes:.2f} minutes)", flush=True)
