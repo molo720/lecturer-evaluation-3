@@ -5,6 +5,9 @@ on:
   push:
     paths:
       - ".github/workflows/rerun-train-models.yml"
+      - "src/train_models.py"
+      - "Data/nigerian_lecturer_evaluations_10000.csv"
+      - "Data/nigerian_slang_dataset.csv"
 
 permissions:
   contents: read
