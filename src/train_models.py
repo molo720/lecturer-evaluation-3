@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import joblib
 
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.naive_bayes import MultinomialNB
@@ -607,19 +607,50 @@ def fit_best_document_models(X_train, X_val, X_test, y_train, y_val, y_test):
     else:
         nb.fit(X_trainval_vec, y_trainval)
 
+    # Cross-validate the selected configurations. Fit TF-IDF inside each fold to
+    # avoid allowing validation-fold vocabulary to influence the fold's features.
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    svm_cv_scores, nb_cv_scores = [], []
+    X_train_raw = np.asarray(X_train)
+    y_train_raw = np.asarray(y_train)
     try:
-        svm_cv = cross_val_score(
-            LinearSVC(C=best_svm_c, class_weight=best_svm_weight, max_iter=5000, random_state=42),
-            X_train_vec, y_train, cv=cv, scoring="f1_macro"
-        )
-        nb_cv = cross_val_score(
-            MultinomialNB(alpha=best_nb_alpha),
-            X_train_vec, y_train, cv=cv, scoring="f1_macro"
-        )
-        svm_cv_mean, svm_cv_std = float(svm_cv.mean()), float(svm_cv.std())
-        nb_cv_mean, nb_cv_std = float(nb_cv.mean()), float(nb_cv.std())
-    except ValueError:
+        for fold_train_idx, fold_val_idx in cv.split(X_train_raw, y_train_raw):
+            X_fold_train_raw = X_train_raw[fold_train_idx]
+            X_fold_val_raw = X_train_raw[fold_val_idx]
+            y_fold_train = y_train_raw[fold_train_idx]
+            y_fold_val = y_train_raw[fold_val_idx]
+
+            fold_vectorizer = TfidfVectorizer(
+                ngram_range=(1, 2), sublinear_tf=True, min_df=2, max_features=50000
+            )
+            X_fold_train = fold_vectorizer.fit_transform(X_fold_train_raw)
+            X_fold_val = fold_vectorizer.transform(X_fold_val_raw)
+
+            fold_svm = LinearSVC(
+                C=best_svm_c,
+                class_weight=best_svm_weight,
+                max_iter=5000,
+                random_state=42,
+            )
+            fold_svm.fit(X_fold_train, y_fold_train)
+            svm_cv_scores.append(score_macro_f1(y_fold_val, fold_svm.predict(X_fold_val)))
+
+            fold_nb = MultinomialNB(alpha=best_nb_alpha)
+            if best_nb_weighted:
+                fold_counts = pd.Series(y_fold_train).value_counts()
+                fold_weights = np.array([
+                    len(y_fold_train) / (len(fold_counts) * fold_counts[label])
+                    for label in y_fold_train
+                ], dtype=float)
+                fold_nb.fit(X_fold_train, y_fold_train, sample_weight=fold_weights)
+            else:
+                fold_nb.fit(X_fold_train, y_fold_train)
+            nb_cv_scores.append(score_macro_f1(y_fold_val, fold_nb.predict(X_fold_val)))
+
+        svm_cv_mean, svm_cv_std = float(np.mean(svm_cv_scores)), float(np.std(svm_cv_scores))
+        nb_cv_mean, nb_cv_std = float(np.mean(nb_cv_scores)), float(np.std(nb_cv_scores))
+    except ValueError as exc:
+        print(f"  [WARNING] Cross-validation failed: {exc}", flush=True)
         svm_cv_mean = svm_cv_std = nb_cv_mean = nb_cv_std = 0.0
 
     svm_metrics = classify_metrics(y_test, svm.predict(X_test_vec))
@@ -839,7 +870,11 @@ def main():
         "runtime": {
             "total_seconds": round(runtime_seconds, 2),
             "total_minutes": round(runtime_minutes, 2),
-            "hardware": "Local training on development machine"
+            "hardware": (
+                f"GitHub Actions hosted runner (Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro})"
+                if os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
+                else f"Local development machine (Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro})"
+            )
         }
     }
 
