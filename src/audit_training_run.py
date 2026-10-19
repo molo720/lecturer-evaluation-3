@@ -278,6 +278,39 @@ def main():
         report.append(f"  {display}: test_rows={int(mask.sum())}")
         report.append(f"    SVM accuracy={accuracy_score(yt[mask], pred_svm[mask]):.6f}; Macro-F1={f1_score(yt[mask], pred_svm[mask], average='macro', zero_division=0):.6f}")
         report.append(f"    Naive Bayes accuracy={accuracy_score(yt[mask], pred_nb[mask]):.6f}; Macro-F1={f1_score(yt[mask], pred_nb[mask], average='macro', zero_division=0):.6f}")
+    # Additional manuscript-audit material requested for the full rerun report.
+    report += ["", "8. POOLED TEST METRICS FROM FRESH MODEL EVALUATION JSON"]
+    metrics_path = data_dir / "model_evaluation_metrics.json"
+    if metrics_path.is_file():
+        metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+        for key, display in (("svm", "SVM"), ("naive_bayes", "Naive Bayes")):
+            model_metrics = metrics_payload.get("document_level", {}).get(key, {})
+            report.append(
+                f"  {display}: accuracy={model_metrics.get('accuracy', 'NOT_FOUND')}; "
+                f"macro_f1={model_metrics.get('macro_f1', 'NOT_FOUND')}; "
+                f"weighted_f1={model_metrics.get('weighted_f1', 'NOT_FOUND')}"
+            )
+    else:
+        report.append(f"METRICS_JSON_NOT_FOUND={metrics_path}")
+
+    report += ["", "9. FULL CONTENTS OF Data/classification_results_summary.csv"]
+    aspect_csv_path = data_dir / "classification_results_summary.csv"
+    if aspect_csv_path.is_file():
+        report.append(f"FILE={aspect_csv_path}")
+        report.extend(aspect_csv_path.read_text(encoding="utf-8").splitlines())
+    else:
+        report.append(f"CLASSIFICATION_RESULTS_CSV_NOT_FOUND={aspect_csv_path}")
+
+    report += ["", "10. ALL TRAINING-CODE LINES MENTIONING X_val, val_idx, OR validation"]
+    matched_lines = [
+        (line_no, line)
+        for line_no, line in enumerate(code_lines, 1)
+        if any(term in line.lower() for term in ("x_val", "val_idx", "validation"))
+    ]
+    report.append(f"MATCHING_LINE_COUNT={len(matched_lines)}")
+    for line_no, line in matched_lines:
+        report.append(f"{line_no}: {line}")
+
     report += ["", "END OF REPORT"]
     output = "\n".join(report) + "\n"
     print(output, end="")
