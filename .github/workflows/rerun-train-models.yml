@@ -1,4 +1,4 @@
-name: Rerun lecturer evaluation model training
+name: Full training rerun and audit report
 
 on:
   workflow_dispatch:
@@ -6,6 +6,8 @@ on:
     paths:
       - ".github/workflows/rerun-train-models.yml"
       - "src/train_models.py"
+      - "src/audit_training_run.py"
+      - "src/audit_split_protocols.py"
       - "Data/nigerian_lecturer_evaluations_10000.csv"
       - "Data/nigerian_slang_dataset.csv"
 
@@ -13,9 +15,9 @@ permissions:
   contents: read
 
 jobs:
-  train:
+  rerun-and-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -26,77 +28,494 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install training dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install numpy pandas scikit-learn joblib nltk
-
-      - name: Run train_models.py and capture log
+      - name: Install repository requirements and capture output
+        id: install
         shell: bash
         run: |
           set -o pipefail
-          python -u src/train_models.py 2>&1 | tee training.log
+          : > rerun_report.txt
+          {
+            echo "TASK: FULL TRAINING RERUN AND AUDIT"
+            echo "REPOSITORY: ${{ github.repository }}"
+            echo "COMMIT: ${{ github.sha }}"
+            echo
+            echo 'COMMAND: python -m pip install -r requirements.txt'
+            python -m pip install -r requirements.txt
+          } 2>&1 | tee -a rerun_report.txt
 
-      - name: Validate and summarize outputs
+      - name: Step 1 - Environment and Data inventory
+        id: environment
+        shell: bash
         run: |
-          python - <<'PY'
+          set -o pipefail
+          {
+            echo
+            echo "================ STEP 1: ENVIRONMENT ================"
+            echo 'COMMAND: python --version'
+            python --version
+            echo
+            echo 'COMMAND: python -c "import sklearn, pandas; print(...)"'
+            python -c "import sklearn, pandas; print('scikit-learn=' + sklearn.__version__); print('pandas=' + pandas.__version__)"
+            echo
+            echo 'COMMAND: nl -ba requirements.txt | sed -n "1,40p"'
+            nl -ba requirements.txt | sed -n '1,40p'
+            echo
+            echo 'COMMAND: ls -l Data/'
+            ls -l Data/
+            echo
+            echo 'COMMAND: Python file-size and CSV row-count inventory'
+            python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          files = [
+              Path("Data/nigerian_lecturer_evaluations_10000.csv"),
+              Path("Data/synthetic_evaluations.csv"),
+              Path("Data/nigerian_slang_dataset.csv"),
+              Path("Data/preprocessed_evaluations.csv"),
+          ]
+          for path in files:
+              print(f"FILE: {path}")
+              if not path.is_file():
+                  raise FileNotFoundError(str(path))
+              size = path.stat().st_size
+              rows = len(pd.read_csv(path, keep_default_na=False, low_memory=False))
+              print(f"  bytes={size}")
+              print(f"  data_rows_excluding_header={rows}")
+          PY
+          } 2>&1 | tee -a rerun_report.txt
+
+      - name: Step 2 - Run the training script exactly as committed
+        id: train
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            echo
+            echo "================ STEP 2: TRAINING ================"
+            echo 'COMMAND: python src/train_models.py'
+            python src/train_models.py
+          } 2>&1 | tee -a rerun_report.txt
+
+      - name: Step 2 - Print fresh JSON, aspect CSV, selected parameters and row count
+        id: outputs
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            echo
+            echo "COMMAND: cat Data/model_evaluation_metrics.json"
+            cat Data/model_evaluation_metrics.json
+            echo
+            echo "COMMAND: cat Data/classification_results_summary.csv"
+            cat Data/classification_results_summary.csv
+            echo
+            echo "COMMAND: python -c row count for regenerated Data/preprocessed_evaluations.csv"
+            python - <<'PY'
           import json
           from pathlib import Path
+          import pandas as pd
 
-          metrics_path = Path("Data/model_evaluation_metrics.json")
-          if not metrics_path.exists():
-              metrics_path = Path("data/model_evaluation_metrics.json")
-          if not metrics_path.exists():
-              raise SystemExit("Training finished without producing model_evaluation_metrics.json")
+          data_dir = Path("Data")
+          metrics = json.loads((data_dir / "model_evaluation_metrics.json").read_text(encoding="utf-8"))
+          pool_path = data_dir / "preprocessed_evaluations.csv"
+          pool = pd.read_csv(pool_path, keep_default_na=False, low_memory=False)
+          print(f"PREPROCESSED_FILE={pool_path}")
+          print(f"PREPROCESSED_ROW_COUNT={len(pool)}")
+          print(f"EXPECTED_ROW_COUNT=13600")
+          if len(pool) != 13600:
+              dataset = metrics.get("dataset", {})
+              print("ROW_COUNT_MISMATCH_DETAILS:")
+              print(f"  metrics.dataset.total_records={dataset.get('total_records', 'NOT_FOUND')}")
+              print(f"  metrics.dataset.llm_generated_records={dataset.get('llm_generated_records', 'NOT_FOUND')}")
+              print(f"  metrics.dataset.template_generated_records={dataset.get('template_generated_records', 'NOT_FOUND')}")
+              print(f"  metrics.dataset.slang_records={dataset.get('slang_records', 'NOT_FOUND')}")
+              print(f"  expected_component_sum={sum(int(dataset.get(k, 0) or 0) for k in ('llm_generated_records','template_generated_records','slang_records'))}")
+              print(f"  row_difference={len(pool) - 13600}")
+          print()
+          print("DOCUMENT-LEVEL SELECTED HYPERPARAMETERS")
+          svm = metrics.get("document_level", {}).get("svm", {})
+          nb = metrics.get("document_level", {}).get("naive_bayes", {})
+          print(f"  SVM: C={svm.get('selected_C', 'NOT_FOUND')}; class_weight={svm.get('selected_class_weight', 'NOT_FOUND')}")
+          print(f"  Naive Bayes: alpha={nb.get('selected_alpha', 'NOT_FOUND')}; class_weighted_training={nb.get('class_weighted_training', 'NOT_FOUND')}")
+          print()
+          print("ASPECT-LEVEL SELECTED HYPERPARAMETERS (recomputed on the saved training pool using the exact grids and validation split in train_models.py)")
+          import sys, json as jsonlib
+          sys.path.insert(0, "src")
+          from train_models import aspect_templates, stratified_train_val_test
+          from sklearn.feature_extraction.text import TfidfVectorizer
+          from sklearn.svm import LinearSVC
+          from sklearn.naive_bayes import MultinomialNB
+          from sklearn.metrics import f1_score
 
-          payload = json.loads(metrics_path.read_text(encoding="utf-8"))
-          print(json.dumps({
-              "dataset": payload.get("dataset", {}),
-              "document_level": payload.get("document_level", {}),
-              "runtime": payload.get("runtime", {}),
-              "metrics_file": str(metrics_path),
-          }, indent=2))
+          aspect_records = []
+          for _, row in pool.iterrows():
+              labels = jsonlib.loads(row.get("aspect_labels", "") or "[]")
+              for aspect, sentiment in labels:
+                  aspect_records.append({
+                      "aspect": aspect,
+                      "text": row["preprocessed_comment"],
+                      "sentiment": sentiment,
+                  })
+          aspect_df = pd.DataFrame(aspect_records)
+          for aspect in aspect_templates.keys():
+              sub = aspect_df[aspect_df["aspect"] == aspect]
+              if len(sub) < 20:
+                  print(f"  {aspect}: skipped; samples={len(sub)}")
+                  continue
+              X = sub["text"].to_numpy()
+              y = sub["sentiment"].to_numpy()
+              X_tr, X_va, X_te, y_tr, y_va, y_te = stratified_train_val_test(X, y)
+              vec = TfidfVectorizer(ngram_range=(1, 2), sublinear_tf=True, min_df=1, max_features=30000)
+              Xtr = vec.fit_transform(X_tr)
+              Xva = vec.transform(X_va)
+              best_c, best_svm_f1 = 1.0, -1.0
+              for C in (0.5, 1.0, 2.0):
+                  candidate = LinearSVC(C=C, max_iter=5000, random_state=42)
+                  candidate.fit(Xtr, y_tr)
+                  score = f1_score(y_va, candidate.predict(Xva), average="macro", zero_division=0)
+                  if score > best_svm_f1:
+                      best_c, best_svm_f1 = C, score
+              best_alpha, best_nb_f1 = 0.5, -1.0
+              for alpha in (0.1, 0.5, 1.0):
+                  candidate = MultinomialNB(alpha=alpha)
+                  candidate.fit(Xtr, y_tr)
+                  score = f1_score(y_va, candidate.predict(Xva), average="macro", zero_division=0)
+                  if score > best_nb_f1:
+                      best_alpha, best_nb_f1 = alpha, score
+              print(f"  {aspect}: SVM_C={best_c}; SVM_class_weight=None; SVM_validation_macro_f1={best_svm_f1:.4f}; NB_alpha={best_alpha}; NB_class_weighted_training=False; NB_validation_macro_f1={best_nb_f1:.4f}")
+          PY
+          } 2>&1 | tee -a rerun_report.txt
 
-          required = [
-              Path("models/svm_document.pkl"),
-              Path("models/nb_document.pkl"),
-              Path("models/vectorizer_document.pkl"),
-              Path("Data/classification_results_summary.csv"),
-              Path("Data/model_evaluation_metrics.json"),
+      - name: Step 3 - Compare fresh results to draft values
+        id: sanity
+        shell: bash
+        run: |
+          set -o pipefail
+          python - <<'PY' 2>&1 | tee -a rerun_report.txt
+          import json, os
+          from pathlib import Path
+          import numpy as np
+          import pandas as pd
+          import sys
+          sys.path.insert(0, "src")
+          from train_models import stratified_train_val_test
+
+          metrics = json.loads(Path("Data/model_evaluation_metrics.json").read_text(encoding="utf-8"))
+          pool = pd.read_csv("Data/preprocessed_evaluations.csv", keep_default_na=False, low_memory=False)
+          svm = metrics["document_level"]["svm"]
+          nb = metrics["document_level"]["naive_bayes"]
+          labels = pool["document_sentiment"].astype(str).to_numpy()
+          idx = np.arange(len(labels))
+          _, _, computed_test, *_ = stratified_train_val_test(idx, labels)
+          actual_test = int(metrics.get("dataset", {}).get("test_size", -1))
+          if len(computed_test) != actual_test:
+              actual_test_display = f"metrics_json={actual_test}; recomputed={len(computed_test)}"
+          else:
+              actual_test_display = str(actual_test)
+
+          checks = [
+              ("SVM accuracy (4 dp)", "0.7904", f"{float(svm['accuracy']):.4f}"),
+              ("SVM Macro-F1 (3 dp)", "0.679", f"{float(svm['macro_f1']):.3f}"),
+              ("SVM confusion matrix", "[[849,42,1],[257,116,247],[0,23,1185]]",
+               json.dumps(svm.get("confusion_matrix"), separators=(",", ":"))),
+              ("NB accuracy (4 dp)", "0.8018", f"{float(nb['accuracy']):.4f}"),
+              ("NB Macro-F1 (4 dp)", "0.6786", f"{float(nb['macro_f1']):.4f}"),
+              ("NB confusion matrix", "[[881,11,0],[271,100,249],[0,8,1200]]",
+               json.dumps(nb.get("confusion_matrix"), separators=(",", ":"))),
+              ("Test size", "2720", str(actual_test) if len(computed_test) == actual_test else actual_test_display),
           ]
-          missing = [str(p) for p in required if not p.exists()]
-          if missing:
-              lower_case_alternatives = {
-                  str(p): Path("data") / p.relative_to("Data")
-                  for p in missing if str(p).startswith("Data/")
-              }
-              missing = [
-                  str(lower_case_alternatives[m]) if m in lower_case_alternatives
-                  and lower_case_alternatives[m].exists() else m
-                  for m in missing
-              ]
-          if missing:
-              raise SystemExit("Missing expected outputs: " + ", ".join(missing))
+          def norm_matrix(text):
+              return text.replace(" ", "")
+          output_rows = []
+          print("STEP 3 SANITY CHECKS")
+          for name, expected, actual in checks:
+              if "confusion matrix" in name.lower():
+                  matched = norm_matrix(expected) == norm_matrix(actual)
+              else:
+                  matched = expected == actual
+              result = "MATCH" if matched else "MISMATCH"
+              output_rows.append((name, expected, actual, result))
+              print(f"CHECK: {name} | expected={expected} | actual={actual} | result={result}")
+          overall = all(row[3] == "MATCH" for row in output_rows)
+          print(f"STEP_3_ALL_MATCHES={'true' if overall else 'false'}")
+          table = ["CHECK | EXPECTED | ACTUAL | RESULT",
+                   "----- | -------- | ------ | ------"]
+          table.extend(f"{name} | {expected} | {actual} | {result}" for name, expected, actual, result in output_rows)
+          Path("step3_comparison_table.txt").write_text("\n".join(table) + "\n", encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"matches={'true' if overall else 'false'}\n")
           PY
 
-      - name: Upload fresh training outputs
+      - name: Step 4 - Run training audit and print its full report
+        if: steps.sanity.outputs.matches == 'true'
+        id: audit_training
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            echo
+            echo "================ STEP 4: TRAINING AUDIT ================"
+            echo 'COMMAND: python src/audit_training_run.py'
+            python src/audit_training_run.py
+            echo
+            echo "FULL CONTENTS OF Data/training_audit_report.txt"
+            cat Data/training_audit_report.txt
+          } 2>&1 | tee -a rerun_report.txt
+
+      - name: Step 5 - Run split-protocol audit
+        if: steps.sanity.outputs.matches == 'true'
+        id: audit_protocols
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            echo
+            echo "================ STEP 5: SPLIT-PROTOCOL AUDIT ================"
+            echo 'COMMAND: python src/audit_split_protocols.py'
+            python src/audit_split_protocols.py
+          } 2>&1 | tee -a rerun_report.txt
+
+      - name: Step 6 - Source code and dataset facts
+        if: steps.sanity.outputs.matches == 'true'
+        id: extras
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            echo
+            echo "================ STEP 6: EXTRA FACTS FROM CODE AND DATA ================"
+            echo 'COMMAND: python inline audit of code definitions and source data'
+            python - <<'PY'
+          import ast, json, re
+          from collections import Counter, defaultdict
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path(".")
+          training_path = root / "src" / "train_models.py"
+          lexicon_path = root / "core" / "lexicons.py"
+          code_lines = training_path.read_text(encoding="utf-8").splitlines()
+          lex_lines = lexicon_path.read_text(encoding="utf-8").splitlines()
+
+          def print_function(path, lines, func_name):
+              start = next((i for i, line in enumerate(lines) if line.startswith(f"def {func_name}(")), None)
+              if start is None:
+                  print(f"FUNCTION_NOT_FOUND {path}:{func_name}")
+                  return
+              end = len(lines)
+              for i in range(start + 1, len(lines)):
+                  line = lines[i]
+                  if line and not line[0].isspace() and (line.startswith("def ") or line.startswith("class ") or re.match(r"^[A-Z_][A-Z0-9_]*\s*=", line)):
+                      end = i
+                      break
+              print(f"CODE {path}:{start+1}-{end}")
+              for number in range(start, end):
+                  print(f"{number+1}: {lines[number]}")
+
+          def print_assignment(path, lines, var_name):
+              start = next((i for i, line in enumerate(lines) if re.match(rf"^{re.escape(var_name)}\s*=", line)), None)
+              if start is None:
+                  print(f"ASSIGNMENT_NOT_FOUND {path}:{var_name}")
+                  return
+              end = len(lines)
+              for i in range(start + 1, len(lines)):
+                  line = lines[i]
+                  if line and not line[0].isspace() and not line.startswith("#") and re.match(r"^[A-Za-z_][A-Za-z0-9_]*\s*=", line) or (line and not line[0].isspace() and line.startswith(("def ", "class "))):
+                      end = i
+                      break
+              print(f"CODE {path}:{start+1}-{end}")
+              for number in range(start, end):
+                  print(f"{number+1}: {lines[number]}")
+
+          print("6.1 LABEL-CREATION SOURCE CODE, VERBATIM")
+          print_function(training_path, code_lines, "rating_to_sentiment")
+          print_function(training_path, code_lines, "load_main_dataset")
+          print_function(training_path, code_lines, "generate_synthetic_dataset")
+          print_function(training_path, code_lines, "load_slang_dataset")
+
+          pool = pd.read_csv("Data/preprocessed_evaluations.csv", keep_default_na=False, low_memory=False)
+          print()
+          print("6.1 LABEL COUNTS BY SOURCE FROM REGENERATED POOLED CSV")
+          for source, sub in pool.groupby("source", sort=False):
+              counts = sub["document_sentiment"].astype(str).str.lower().value_counts()
+              print(f"SOURCE={source} ROWS={len(sub)}")
+              for label in ("positive", "neutral", "negative"):
+                  print(f"  {label}={int(counts.get(label, 0))}")
+
+          print()
+          print("6.2 ASPECT LEXICON ENTRY COUNTS AND DEFINITIONS")
+          # Import actual objects for counts, without substituting definitions.
+          import sys
+          sys.path.insert(0, "src")
+          from core.lexicons import ASPECTS, ASPECT_KEYWORDS, NEGATION_MARKERS
+          print(f"ASPECTS_DEFINITION=core/lexicons.py:{next(i+1 for i,x in enumerate(lex_lines) if x.startswith('ASPECTS ='))}")
+          print(f"ASPECT_COUNT={len(ASPECTS)}")
+          print(f"ASPECT_KEYWORDS_DEFINITION=core/lexicons.py:{next(i+1 for i,x in enumerate(lex_lines) if x.startswith('ASPECT_KEYWORDS ='))}")
+          total_keywords = 0
+          for aspect, sentiment_map in ASPECT_KEYWORDS.items():
+              counts = {sent: len(words) for sent, words in sentiment_map.items()}
+              total = sum(counts.values())
+              total_keywords += total
+              print(f"  {aspect}: positive={counts.get('positive', 0)}; negative={counts.get('negative', 0)}; neutral={counts.get('neutral', 0)}; total={total}")
+          print(f"TOTAL_ASPECT_KEYWORD_ENTRIES={total_keywords}")
+          print_assignment(lexicon_path, lex_lines, "ASPECTS")
+          print_assignment(lexicon_path, lex_lines, "ASPECT_KEYWORDS")
+          print(f"NEGATION_MARKERS_DEFINITION=core/lexicons.py:{next(i+1 for i,x in enumerate(lex_lines) if x.startswith('NEGATION_MARKERS ='))}")
+          print(f"NEGATION_MARKERS_ENTRY_COUNT={len(NEGATION_MARKERS)}")
+          print("NEGATION_MARKERS_SORTED=" + repr(sorted(NEGATION_MARKERS)))
+          print_assignment(lexicon_path, lex_lines, "NEGATION_MARKERS")
+
+          import train_models
+          print()
+          print("6.2 CLAUSE CONNECTIVE LISTS")
+          for name in ("CONNECTORS_CONTRAST", "CONNECTORS_AND"):
+              value = getattr(train_models, name, None)
+              print(f"{name}_DEFINITION=src/train_models.py:{next((i+1 for i,x in enumerate(code_lines) if x.startswith(name+' =')), 'NOT_FOUND')}")
+              if value is None:
+                  print(f"{name}=NOT_FOUND")
+              else:
+                  print(f"{name}_ENTRY_COUNT={len(value)}")
+                  print(f"{name}_VALUES={value!r}")
+                  print_assignment(training_path, code_lines, name)
+
+          print()
+          print("6.3 TEMPLATE-FAMILY HOLDOUT CODE AND METRICS")
+          candidates = []
+          for path in root.rglob("*"):
+              if not path.is_file() or any(part in {".git", ".venv", "venv", "__pycache__", "node_modules"} for part in path.parts):
+                  continue
+              if path.suffix.lower() not in {".py", ".json", ".md", ".txt"}:
+                  continue
+              if path.as_posix() in {"src/audit_training_run.py", "src/audit_split_protocols.py"}:
+                  continue
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if re.search(r"template.?family|family.?hold.?out|holdout.?metrics", text, re.I):
+                  candidates.append((path, text))
+          if not candidates:
+              print("TEMPLATE_FAMILY_HOLDOUT_CODE_OR_METRICS=NOT_FOUND_IN_REPOSITORY")
+          else:
+              for path, text in candidates:
+                  print(f"MATCHING_FILE={path}")
+                  if path.suffix.lower() == ".json":
+                      try:
+                          obj = json.loads(text)
+                          print(json.dumps(obj, indent=2, ensure_ascii=False))
+                      except json.JSONDecodeError:
+                          print(text)
+                  else:
+                      print(text)
+          print("HELD_OUT_FAMILY_COUNT_AND_TEST_RECORD_COUNT: printed only if contained in a matching source or metrics file above.")
+
+          print()
+          print("6.4 PRIMARY CSV DUPLICATE AND RATING-LABEL CONFLICT COUNTS")
+          primary_path = Path("Data/nigerian_lecturer_evaluations_10000.csv")
+          primary = pd.read_csv(primary_path, keep_default_na=False, low_memory=False)
+          comments = primary["Comment"].map(lambda x: str(x).lower())
+          def label_from_rating(value):
+              try:
+                  rating = int(value)
+              except (TypeError, ValueError):
+                  return "neutral"
+              if rating <= 2:
+                  return "negative"
+              if rating >= 4:
+                  return "positive"
+              return "neutral"
+          derived = primary["Rating"].map(label_from_rating)
+          duplicate_pair = pd.DataFrame({"comment_lower": comments, "rating": primary["Rating"].map(str)})
+          duplicate_pair_rows = int(duplicate_pair.duplicated(keep="first").sum())
+          pair_groups = duplicate_pair.groupby(["comment_lower", "rating"], dropna=False).size()
+          print(f"PRIMARY_ROWS={len(primary)}")
+          print(f"DUPLICATE_ROWS_ON_LOWERCASED_COMMENT_PLUS_RATING_BEYOND_FIRST={duplicate_pair_rows}")
+          print(f"REPEATED_COMMENT_TEXT_KEYS={int((comments.value_counts() > 1).sum())}")
+          print(f"ROWS_BELONGING_TO_REPEATED_COMMENT_TEXT_KEYS={int(comments.isin(comments.value_counts()[comments.value_counts() > 1].index).sum())}")
+          label_frame = pd.DataFrame({"comment_lower": comments, "derived_label": derived})
+          labels_by_text = label_frame.groupby("comment_lower", dropna=False)["derived_label"].agg(lambda s: set(s))
+          conflicts = {key for key, values in labels_by_text.items() if key and len(values) > 1}
+          conflicting_rows = int(label_frame["comment_lower"].isin(conflicts).sum())
+          neutral_conflict_rows = int(((derived == "neutral") & label_frame["comment_lower"].isin(conflicts)).sum())
+          print(f"TEXTS_WITH_CONFLICTING_RATING_DERIVED_LABELS={len(conflicts)}")
+          print(f"ROWS_COVERED_BY_CONFLICTING_RATING_DERIVED_LABEL_TEXTS={conflicting_rows}")
+          print(f"NEUTRAL_ROWS_SHARING_TEXT_WITH_DIFFERENTLY_LABELLED_ROW={neutral_conflict_rows}")
+
+          print()
+          print("6.5 SLANG CSV CLAUSE COUNTS")
+          slang = pd.read_csv("Data/nigerian_slang_dataset.csv", keep_default_na=False, low_memory=False)
+          clause_counter = Counter()
+          total_clauses = 0
+          for comment in slang["comment"].astype(str):
+              parts = re.split(r",|\.|\bbut\b|\band\b|\balso\b|\bhowever\b", comment, flags=re.I)
+              for part in parts:
+                  clause = re.sub(r"\s+", " ", part.strip().lower()).strip()
+                  if clause:
+                      clause_counter[clause] += 1
+                      total_clauses += 1
+          print(f"SLANG_ROWS={len(slang)}")
+          print(f"TOTAL_NONEMPTY_CLAUSE_OCCURRENCES={total_clauses}")
+          print(f"DISTINCT_NORMALIZED_CLAUSES={len(clause_counter)}")
+          print("FIVE_MOST_REPEATED_CLAUSES:")
+          for clause, count in clause_counter.most_common(5):
+              print(f"  count={count} | {clause}")
+
+          print()
+          print("END OF STEP 6 INLINE AUDIT")
+          PY
+          } 2>&1 | tee -a rerun_report.txt
+
+      - name: Finalize report and list failed or skipped steps
+        if: always()
+        id: finalize
+        shell: bash
+        run: |
+          {
+            echo
+            echo "================ FINAL MATCH/MISMATCH TABLE ================"
+            if [ -f step3_comparison_table.txt ]; then
+              cat step3_comparison_table.txt
+            else
+              echo "STEP_3_COMPARISON_TABLE=NOT_CREATED"
+            fi
+            echo
+            echo "================ FAILURES / NOT FOUND / NOT RUN ================"
+            echo "install_step_outcome=${{ steps.install.outcome }}"
+            echo "environment_step_outcome=${{ steps.environment.outcome }}"
+            echo "training_step_outcome=${{ steps.train.outcome }}"
+            echo "outputs_step_outcome=${{ steps.outputs.outcome }}"
+            echo "sanity_step_outcome=${{ steps.sanity.outcome }}"
+            echo "training_audit_step_outcome=${{ steps.audit_training.outcome }}"
+            echo "split_protocol_audit_step_outcome=${{ steps.audit_protocols.outcome }}"
+            echo "extra_facts_step_outcome=${{ steps.extras.outcome }}"
+            if [ "${{ steps.sanity.outputs.matches }}" = "false" ]; then
+              echo "STOP_RULE: At least one Step 3 comparison was MISMATCH; Steps 4-6 were not run."
+            fi
+            if [ "${{ steps.environment.outcome }}" = "failure" ]; then echo "FAILED: Step 1 environment or Data inventory command."; fi
+            if [ "${{ steps.train.outcome }}" = "failure" ]; then echo "FAILED: python src/train_models.py. See exact console output above."; fi
+            if [ "${{ steps.outputs.outcome }}" = "failure" ]; then echo "FAILED: Step 2 output or aspect hyperparameter audit. See exact console output above."; fi
+            if [ "${{ steps.sanity.outcome }}" = "failure" ]; then echo "FAILED: Step 3 comparison command. See exact console output above."; fi
+            if [ "${{ steps.audit_training.outcome }}" = "failure" ]; then echo "FAILED: python src/audit_training_run.py. See exact console output above."; fi
+            if [ "${{ steps.audit_protocols.outcome }}" = "failure" ]; then echo "FAILED: python src/audit_split_protocols.py. See exact console output above."; fi
+            if [ "${{ steps.extras.outcome }}" = "failure" ]; then echo "FAILED: Step 6 code/data audit. See exact console output above."; fi
+            echo
+            echo "EXACT NOT-FOUND / MISSING / ERROR LINES ALREADY PRESENT IN THIS REPORT:"
+            if grep -E 'NOT_FOUND|NOT_FOUND_IN_REPOSITORY|_MISSING=|FileNotFoundError|Traceback (most recent call last)|^ERROR:' rerun_report.txt; then :; else echo "No matching marker line found."; fi
+            echo
+            echo "END OF RERUN REPORT"
+          } | tee -a rerun_report.txt
+
+      - name: Upload full rerun report and outputs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: train-models-results-${{ github.run_id }}
-          if-no-files-found: error
+          name: full-rerun-report-${{ github.run_id }}
+          if-no-files-found: warn
           path: |
-            training.log
+            rerun_report.txt
+            step3_comparison_table.txt
             Data/model_evaluation_metrics.json
             Data/classification_results_summary.csv
             Data/preprocessed_evaluations.csv
-            Data/synthetic_evaluations.csv
-            data/model_evaluation_metrics.json
-            data/classification_results_summary.csv
-            data/preprocessed_evaluations.csv
-            data/synthetic_evaluations.csv
-            models/svm_document.pkl
-            models/nb_document.pkl
-            models/vectorizer_document.pkl
-            models/svm_*.pkl
-            models/nb_*.pkl
-            models/vectorizer_*.pkl
+            Data/training_audit_report.txt
