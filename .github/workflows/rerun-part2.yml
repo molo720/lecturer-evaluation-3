@@ -1,0 +1,520 @@
+name: Continue full training rerun and audits
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/rerun-part2.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  continue-rerun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Restore Run 1 report and capture committed template version
+        id: restore
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          {
+            echo 'COMMAND: curl prior Run 1 artifact (run 39247780977, artifact 12183094306)'
+            curl --fail --location --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -w '\nHTTP_STATUS=%{http_code}\n' \
+              -o /tmp/run1-artifact.zip \
+              https://api.github.com/repos/molo720/lecturer-evaluation-3/actions/artifacts/12183094306/zip
+            echo
+            echo 'COMMAND: unzip -l /tmp/run1-artifact.zip'
+            unzip -l /tmp/run1-artifact.zip
+            echo
+            echo 'COMMAND: unzip -q /tmp/run1-artifact.zip -d /tmp/run1-artifact'
+            mkdir -p /tmp/run1-artifact
+            unzip -q /tmp/run1-artifact.zip -d /tmp/run1-artifact
+            echo
+            echo 'COMMAND: find /tmp/run1-artifact -maxdepth 3 -type f -print'
+            find /tmp/run1-artifact -maxdepth 3 -type f -print
+            test -s /tmp/run1-artifact/rerun_report.txt
+            test -s /tmp/run1-artifact/Data/model_evaluation_metrics.json
+            echo
+            echo 'COMMAND: sha256sum prior report and Run 1 metrics JSON'
+            sha256sum /tmp/run1-artifact/rerun_report.txt /tmp/run1-artifact/Data/model_evaluation_metrics.json
+          } 2>&1 | tee /tmp/restore-run1.log
+          cp /tmp/run1-artifact/rerun_report.txt rerun_report_part2.txt
+          cat /tmp/restore-run1.log >> rerun_report_part2.txt
+          {
+            echo
+            echo "================ CONTINUATION PART 2 ================"
+            echo "RUN 1 metrics and console output are carried forward from GitHub Actions run 39247780977."
+            echo "Two additional training invocations follow in this workflow: Run 2 and Run 3."
+            echo
+            echo 'COMMAND: git show HEAD:Data/synthetic_evaluations.csv > /tmp/synthetic_committed.csv'
+            git show HEAD:Data/synthetic_evaluations.csv > /tmp/synthetic_committed.csv
+            echo 'COMMAND: wc -l /tmp/synthetic_committed.csv'
+            wc -l /tmp/synthetic_committed.csv
+            echo 'COMMAND: sha256sum /tmp/synthetic_committed.csv'
+            sha256sum /tmp/synthetic_committed.csv
+            echo 'COMMAND: cp the previous run metrics JSON to /tmp/run1_metrics.json'
+            cp /tmp/run1-artifact/Data/model_evaluation_metrics.json /tmp/run1_metrics.json
+            sha256sum /tmp/run1_metrics.json
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Install pinned repository requirements
+        id: install
+        shell: bash
+        run: |
+          set -eo pipefail
+          {
+            echo
+            echo "================ CONTINUATION ENVIRONMENT INSTALL ================"
+            echo 'COMMAND: python -m pip install -r requirements.txt'
+            python -m pip install -r requirements.txt
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Print platform, pip freeze, and repository versions
+        id: environment
+        shell: bash
+        run: |
+          set -eo pipefail
+          {
+            echo
+            echo "================ PLATFORM AND INSTALLED PACKAGES ================"
+            echo 'COMMAND: python --version'
+            python --version
+            echo
+            echo 'COMMAND: python -c "import platform; print(platform.platform()); print(platform.machine()); print(platform.python_implementation())"'
+            python -c "import platform; print(platform.platform()); print(platform.machine()); print(platform.python_implementation())"
+            echo
+            echo 'COMMAND: uname -a'
+            uname -a
+            echo
+            echo 'COMMAND: python -c "import numpy, pandas, scipy, sklearn; print(...)"'
+            python -c "import numpy, pandas, scipy, sklearn; print('numpy=' + numpy.__version__); print('pandas=' + pandas.__version__); print('scipy=' + scipy.__version__); print('scikit-learn=' + sklearn.__version__)"
+            echo
+            echo 'COMMAND: pip freeze'
+            python -m pip freeze
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Run training a second time
+        id: train2
+        shell: bash
+        run: |
+          set -eo pipefail
+          {
+            echo
+            echo "================ RUN 2: TRAINING ================"
+            echo 'COMMAND: python src/train_models.py'
+            python src/train_models.py
+          } 2>&1 | tee -a rerun_report_part2.txt
+          cp Data/model_evaluation_metrics.json /tmp/run2_metrics.json
+          {
+            echo
+            echo 'COMMAND: cat Data/model_evaluation_metrics.json (Run 2)'
+            cat Data/model_evaluation_metrics.json
+            echo
+            echo 'COMMAND: report row count of Data/preprocessed_evaluations.csv after Run 2'
+            python - <<'PY'
+          import pandas as pd
+          path = "Data/preprocessed_evaluations.csv"
+          rows = len(pd.read_csv(path, keep_default_na=False, low_memory=False))
+          print(f"FILE={path}")
+          print(f"ROW_COUNT={rows}")
+          print("EXPECTED_ROW_COUNT=13600")
+          if rows != 13600:
+              print(f"ROW_COUNT_DIFFERENCE={rows - 13600}")
+          PY
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Compare regenerated template CSV with committed version
+        id: template_diff
+        shell: bash
+        run: |
+          set -eo pipefail
+          {
+            echo
+            echo "================ REGENERATED VS COMMITTED TEMPLATE CSV ================"
+            echo 'COMMAND: python row-by-row comparison of /tmp/synthetic_committed.csv and Data/synthetic_evaluations.csv'
+            python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          committed_path = Path("/tmp/synthetic_committed.csv")
+          regenerated_path = Path("Data/synthetic_evaluations.csv")
+          committed = pd.read_csv(committed_path, dtype=str, keep_default_na=False, low_memory=False).reset_index(drop=True)
+          regenerated = pd.read_csv(regenerated_path, dtype=str, keep_default_na=False, low_memory=False).reset_index(drop=True)
+          columns = list(dict.fromkeys([*committed.columns, *regenerated.columns]))
+          def row_sig(df, i):
+              return tuple(df.iloc[i][col] if col in df.columns else "<COLUMN_MISSING>" for col in columns)
+          compared = min(len(committed), len(regenerated))
+          diff_indices = [i for i in range(compared) if row_sig(committed, i) != row_sig(regenerated, i)]
+          extra_committed = max(0, len(committed) - len(regenerated))
+          extra_regenerated = max(0, len(regenerated) - len(committed))
+          print(f"COMMITTED_FILE={committed_path}")
+          print(f"REGENERATED_FILE={regenerated_path}")
+          print(f"COMMITTED_DATA_ROWS={len(committed)}")
+          print(f"REGENERATED_DATA_ROWS={len(regenerated)}")
+          print(f"COLUMNS_ONLY_IN_COMMITTED={sorted(set(committed.columns) - set(regenerated.columns))}")
+          print(f"COLUMNS_ONLY_IN_REGENERATED={sorted(set(regenerated.columns) - set(committed.columns))}")
+          print(f"ROWS_COMPARED_AT_SAME_POSITION={compared}")
+          print(f"ROWS_DIFFERENT_AT_SAME_POSITION={len(diff_indices)}")
+          print(f"EXTRA_COMMITTED_ROWS={extra_committed}")
+          print(f"EXTRA_REGENERATED_ROWS={extra_regenerated}")
+          print(f"TOTAL_ROW_DIFFERENCES_INCLUDING_ROW_COUNT_MISMATCH={len(diff_indices) + extra_committed + extra_regenerated}")
+          print(f"FIRST_30_DIFFERING_ZERO_BASED_POSITIONS={diff_indices[:30]}")
+          PY
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Run training a third time
+        id: train3
+        shell: bash
+        run: |
+          set -eo pipefail
+          {
+            echo
+            echo "================ RUN 3: TRAINING ================"
+            echo 'COMMAND: python src/train_models.py'
+            python src/train_models.py
+          } 2>&1 | tee -a rerun_report_part2.txt
+          cp Data/model_evaluation_metrics.json /tmp/run3_metrics.json
+          {
+            echo
+            echo 'COMMAND: cat Data/model_evaluation_metrics.json (Run 3)'
+            cat Data/model_evaluation_metrics.json
+            echo
+            echo 'COMMAND: cat Data/classification_results_summary.csv (Run 3)'
+            cat Data/classification_results_summary.csv
+            echo
+            echo 'COMMAND: report final row count of Data/preprocessed_evaluations.csv after Run 3'
+            python - <<'PY'
+          import pandas as pd
+          path = "Data/preprocessed_evaluations.csv"
+          rows = len(pd.read_csv(path, keep_default_na=False, low_memory=False))
+          print(f"FILE={path}")
+          print(f"FINAL_ROW_COUNT={rows}")
+          print("EXPECTED_ROW_COUNT=13600")
+          if rows != 13600:
+              print(f"ROW_COUNT_DIFFERENCE={rows - 13600}")
+          PY
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Compare test-metric determinism across all three runs
+        id: determinism
+        shell: bash
+        run: |
+          set -eo pipefail
+          {
+            echo
+            echo "================ RUN-TO-RUN DETERMINISM CHECK ================"
+            echo "Run 1 metrics source: prior actual training artifact from run 39247780977."
+            echo "Run 2 and Run 3 metrics source: Data/model_evaluation_metrics.json saved immediately after each invocation."
+            python - <<'PY'
+          import json
+          from pathlib import Path
+
+          paths = {
+              "RUN_1": Path("/tmp/run1_metrics.json"),
+              "RUN_2": Path("/tmp/run2_metrics.json"),
+              "RUN_3": Path("/tmp/run3_metrics.json"),
+          }
+          metrics = {name: json.loads(path.read_text(encoding="utf-8")) for name, path in paths.items()}
+          checks = []
+          for model_key, display in (("svm", "SVM"), ("naive_bayes", "Naive Bayes")):
+              print(f"MODEL={display}")
+              for run_name, payload in metrics.items():
+                  model = payload["document_level"][model_key]
+                  print(f"  {run_name}: accuracy={model.get('accuracy')}; macro_f1={model.get('macro_f1')}; weighted_f1={model.get('weighted_f1')}; confusion_matrix={json.dumps(model.get('confusion_matrix'), separators=(',', ':'))}; test_size={payload.get('dataset', {}).get('test_size')}")
+              for field in ("accuracy", "macro_f1", "confusion_matrix"):
+                  values = [metrics[name]["document_level"][model_key].get(field) for name in ("RUN_1", "RUN_2", "RUN_3")]
+                  same = values[0] == values[1] == values[2]
+                  checks.append(same)
+                  print(f"  IDENTICAL_ACROSS_ALL_THREE_RUNS_{field.upper()}={'true' if same else 'false'}")
+          print(f"ALL_REQUESTED_METRICS_IDENTICAL={'true' if all(checks) else 'false'}")
+          PY
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Step 4 - Run training audit and print the entire report
+        id: audit_training
+        if: always() && steps.train3.outcome == 'success'
+        shell: bash
+        run: |
+          set -eo pipefail
+          {
+            echo
+            echo "================ STEP 4: TRAINING AUDIT ================"
+            echo 'COMMAND: python src/audit_training_run.py'
+            python src/audit_training_run.py
+            echo
+            echo 'COMMAND: cat Data/training_audit_report.txt'
+            cat Data/training_audit_report.txt
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Step 5 - Run split-protocol audit
+        id: audit_protocols
+        if: always() && steps.train3.outcome == 'success'
+        shell: bash
+        run: |
+          set -eo pipefail
+          {
+            echo
+            echo "================ STEP 5: SPLIT-PROTOCOL AUDIT ================"
+            echo 'COMMAND: python src/audit_split_protocols.py'
+            python src/audit_split_protocols.py
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Step 6 - Code, lexicon, label and data facts
+        id: extras
+        if: always() && steps.train3.outcome == 'success'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eo pipefail
+          {
+            echo
+            echo "================ STEP 6: EXTRA FACTS FROM CODE AND DATA ================"
+            echo 'COMMAND: inline Python audit of the actual checked-out source and Data files'
+            python - <<'PY'
+          import ast, json, re
+          from collections import Counter
+          from pathlib import Path
+          import pandas as pd
+
+          training_path = Path("src/train_models.py")
+          lexicon_path = Path("core/lexicons.py")
+          code_lines = training_path.read_text(encoding="utf-8").splitlines()
+          lex_lines = lexicon_path.read_text(encoding="utf-8").splitlines()
+
+          def print_function(path, lines, func_name):
+              start = next((i for i, line in enumerate(lines) if line.startswith(f"def {func_name}(")), None)
+              if start is None:
+                  print(f"FUNCTION_NOT_FOUND {path}:{func_name}")
+                  return
+              end = len(lines)
+              for i in range(start + 1, len(lines)):
+                  line = lines[i]
+                  if line and not line[0].isspace() and (
+                      line.startswith("def ") or line.startswith("class ")
+                      or re.match(r"^[A-Z_][A-Z0-9_]*\s*=", line)
+                  ):
+                      end = i
+                      break
+              print(f"CODE {path}:{start+1}-{end}")
+              for number in range(start, end):
+                  print(f"{number+1}: {lines[number]}")
+
+          def print_assignment(path, lines, var_name):
+              start = next((i for i, line in enumerate(lines)
+                            if re.match(rf"^{re.escape(var_name)}\s*=", line)), None)
+              if start is None:
+                  print(f"ASSIGNMENT_NOT_FOUND {path}:{var_name}")
+                  return
+              end = len(lines)
+              for i in range(start + 1, len(lines)):
+                  line = lines[i]
+                  if line and not line[0].isspace() and not line.startswith("#") and re.match(r"^[A-Za-z_][A-Za-z0-9_]*\s*=", line):
+                      end = i
+                      break
+                  if line and not line[0].isspace() and line.startswith(("def ", "class ")):
+                      end = i
+                      break
+              print(f"CODE {path}:{start+1}-{end}")
+              for number in range(start, end):
+                  print(f"{number+1}: {lines[number]}")
+
+          print("6.1 LABEL-CREATION SOURCE CODE, VERBATIM")
+          print_function(training_path, code_lines, "rating_to_sentiment")
+          print_function(training_path, code_lines, "load_main_dataset")
+          print_function(training_path, code_lines, "generate_synthetic_dataset")
+          print_function(training_path, code_lines, "load_slang_dataset")
+
+          pool = pd.read_csv("Data/preprocessed_evaluations.csv", keep_default_na=False, low_memory=False)
+          print()
+          print("6.1 LABEL COUNTS BY SOURCE FROM REGENERATED POOLED CSV")
+          for source, sub in pool.groupby("source", sort=False):
+              counts = sub["document_sentiment"].astype(str).str.lower().value_counts()
+              print(f"SOURCE={source} ROWS={len(sub)}")
+              for label in ("positive", "neutral", "negative"):
+                  print(f"  {label}={int(counts.get(label, 0))}")
+
+          print()
+          print("6.2 ASPECT LEXICON ENTRY COUNTS AND DEFINITIONS")
+          import sys
+          if str(Path(".").resolve()) not in sys.path:
+              sys.path.insert(0, str(Path(".").resolve()))
+          from core.lexicons import ASPECTS, ASPECT_KEYWORDS, NEGATION_MARKERS
+          print(f"ASPECTS_DEFINITION=core/lexicons.py:{next(i+1 for i,x in enumerate(lex_lines) if x.startswith('ASPECTS ='))}")
+          print(f"ASPECT_COUNT={len(ASPECTS)}")
+          print(f"ASPECT_KEYWORDS_DEFINITION=core/lexicons.py:{next(i+1 for i,x in enumerate(lex_lines) if x.startswith('ASPECT_KEYWORDS ='))}")
+          total_keywords = 0
+          for aspect, sentiment_map in ASPECT_KEYWORDS.items():
+              counts = {sentiment: len(values) for sentiment, values in sentiment_map.items()}
+              total = sum(counts.values())
+              total_keywords += total
+              print(f"  {aspect}: positive={counts.get('positive', 0)}; negative={counts.get('negative', 0)}; neutral={counts.get('neutral', 0)}; total={total}")
+          print(f"TOTAL_ASPECT_KEYWORD_ENTRIES={total_keywords}")
+          print_assignment(lexicon_path, lex_lines, "ASPECTS")
+          print_assignment(lexicon_path, lex_lines, "ASPECT_KEYWORDS")
+          print(f"NEGATION_MARKERS_DEFINITION=core/lexicons.py:{next(i+1 for i,x in enumerate(lex_lines) if x.startswith('NEGATION_MARKERS ='))}")
+          print(f"NEGATION_MARKERS_ENTRY_COUNT={len(NEGATION_MARKERS)}")
+          print("NEGATION_MARKERS_SORTED=" + repr(sorted(NEGATION_MARKERS)))
+          print_assignment(lexicon_path, lex_lines, "NEGATION_MARKERS")
+
+          sys.path.insert(0, str(Path("src").resolve()))
+          import train_models
+          print()
+          print("6.2 CLAUSE CONNECTIVE LISTS")
+          for name in ("CONNECTORS_CONTRAST", "CONNECTORS_AND"):
+              value = getattr(train_models, name, None)
+              line_no = next((i+1 for i,x in enumerate(code_lines) if x.startswith(name + " =")), "NOT_FOUND")
+              print(f"{name}_DEFINITION=src/train_models.py:{line_no}")
+              if value is None:
+                  print(f"{name}=NOT_FOUND")
+              else:
+                  print(f"{name}_ENTRY_COUNT={len(value)}")
+                  print(f"{name}_VALUES={value!r}")
+                  print_assignment(training_path, code_lines, name)
+
+          print()
+          print("6.3 TEMPLATE-FAMILY HOLDOUT SOURCE DISCOVERY")
+          print("CURRENT_MAIN_REPO_TREE_CHECK: no template-family holdout code or Data/template_family_holdout_metrics.json is tracked on current main.")
+          print("HISTORICAL_CODE_FILE=https://github.com/molo720/lecturer-evaluation-3/blob/a02f77962120b7a89bb9dd9ac705e593d03eff39/src/evaluate_template_holdout.py")
+          print("HISTORICAL_WORKFLOW_RUN=https://github.com/molo720/lecturer-evaluation-3/actions/runs/38309432154")
+          print("HISTORICAL_METRICS_ARTIFACT_ID=11774221414")
+
+          print()
+          print("6.4 PRIMARY CSV DUPLICATE AND RATING-LABEL CONFLICT COUNTS")
+          primary = pd.read_csv("Data/nigerian_lecturer_evaluations_10000.csv", keep_default_na=False, low_memory=False)
+          comments = primary["Comment"].map(lambda value: str(value).lower())
+          def label_from_rating(value):
+              try:
+                  rating = int(value)
+              except (TypeError, ValueError):
+                  return "neutral"
+              if rating <= 2:
+                  return "negative"
+              if rating >= 4:
+                  return "positive"
+              return "neutral"
+          derived = primary["Rating"].map(label_from_rating)
+          pair_frame = pd.DataFrame({"comment_lower": comments, "rating": primary["Rating"].map(str)})
+          duplicate_pair_rows = int(pair_frame.duplicated(keep="first").sum())
+          counts = comments.value_counts()
+          repeated_keys = set(counts[counts > 1].index)
+          print(f"PRIMARY_ROWS={len(primary)}")
+          print(f"DUPLICATE_ROWS_ON_LOWERCASED_COMMENT_PLUS_RATING_BEYOND_FIRST={duplicate_pair_rows}")
+          print(f"REPEATED_COMMENT_TEXT_KEYS={int((counts > 1).sum())}")
+          print(f"ROWS_BELONGING_TO_REPEATED_COMMENT_TEXT_KEYS={int(comments.isin(repeated_keys).sum())}")
+          label_frame = pd.DataFrame({"comment_lower": comments, "derived_label": derived})
+          labels_by_text = label_frame.groupby("comment_lower", dropna=False)["derived_label"].agg(lambda values: set(values))
+          conflicts = {key for key, values in labels_by_text.items() if key and len(values) > 1}
+          conflicting_rows = int(label_frame["comment_lower"].isin(conflicts).sum())
+          neutral_conflict_rows = int(((derived == "neutral") & label_frame["comment_lower"].isin(conflicts)).sum())
+          print(f"TEXTS_WITH_CONFLICTING_RATING_DERIVED_LABELS={len(conflicts)}")
+          print(f"ROWS_COVERED_BY_CONFLICTING_RATING_DERIVED_LABEL_TEXTS={conflicting_rows}")
+          print(f"NEUTRAL_ROWS_SHARING_TEXT_WITH_DIFFERENTLY_LABELLED_ROW={neutral_conflict_rows}")
+
+          print()
+          print("6.5 SLANG CSV CLAUSE COUNTS")
+          slang = pd.read_csv("Data/nigerian_slang_dataset.csv", keep_default_na=False, low_memory=False)
+          clause_counter = Counter()
+          total_clauses = 0
+          for comment in slang["comment"].astype(str):
+              parts = re.split(r",|\.|\bbut\b|\band\b|\balso\b|\bhowever\b", comment, flags=re.I)
+              for part in parts:
+                  clause = re.sub(r"\s+", " ", part.strip().lower()).strip()
+                  if clause:
+                      clause_counter[clause] += 1
+                      total_clauses += 1
+          print(f"SLANG_ROWS={len(slang)}")
+          print(f"TOTAL_NONEMPTY_CLAUSE_OCCURRENCES={total_clauses}")
+          print(f"DISTINCT_NORMALIZED_CLAUSES={len(clause_counter)}")
+          print("FIVE_MOST_REPEATED_CLAUSES:")
+          for clause, count in clause_counter.most_common(5):
+              print(f"  count={count} | {clause}")
+          PY
+            echo
+            echo 'COMMAND: download prior template-family holdout metrics artifact 11774221414 and print its JSON'
+            curl --fail --location --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -w '\nHTTP_STATUS=%{http_code}\n' \
+              -o /tmp/template-family-holdout.zip \
+              https://api.github.com/repos/molo720/lecturer-evaluation-3/actions/artifacts/11774221414/zip
+            mkdir -p /tmp/template-family-holdout
+            unzip -oq /tmp/template-family-holdout.zip -d /tmp/template-family-holdout
+            HOLDOUT_JSON=$(find /tmp/template-family-holdout -type f -name 'template_family_holdout_metrics.json' -print -quit)
+            if [ -z "$HOLDOUT_JSON" ]; then
+              echo "TEMPLATE_FAMILY_HOLDOUT_METRICS_JSON_NOT_FOUND_IN_ARTIFACT"
+              find /tmp/template-family-holdout -maxdepth 4 -type f -print
+              exit 1
+            fi
+            echo "TEMPLATE_FAMILY_HOLDOUT_JSON_FILE=$HOLDOUT_JSON"
+            cat "$HOLDOUT_JSON"
+            echo
+            echo "TEMPLATE_FAMILY_HOLDOUT_SUMMARY_FROM_JSON"
+            python - "$HOLDOUT_JSON" <<'PY'
+          import json, sys
+          from pathlib import Path
+          data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          print(f"synthetic_records_generated={data.get('synthetic_records_generated')}")
+          print(f"held_out_family_count={data.get('held_out_family_count')}")
+          print(f"held_out_test_records={data.get('held_out_test_records')}")
+          print(f"SVM accuracy={data.get('svm', {}).get('accuracy')}; Macro-F1={data.get('svm', {}).get('macro_f1')}")
+          print(f"Naive Bayes accuracy={data.get('naive_bayes', {}).get('accuracy')}; Macro-F1={data.get('naive_bayes', {}).get('macro_f1')}")
+          print(f"metrics_seed={data.get('seed')}")
+          PY
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Finalize report with failed or skipped steps
+        if: always()
+        id: finalize
+        shell: bash
+        run: |
+          {
+            echo
+            echo "================ FINAL STEP STATUS ================"
+            echo "restore=${{ steps.restore.outcome }}"
+            echo "install=${{ steps.install.outcome }}"
+            echo "environment=${{ steps.environment.outcome }}"
+            echo "run_2=${{ steps.train2.outcome }}"
+            echo "template_comparison=${{ steps.template_diff.outcome }}"
+            echo "run_3=${{ steps.train3.outcome }}"
+            echo "determinism=${{ steps.determinism.outcome }}"
+            echo "step_4_training_audit=${{ steps.audit_training.outcome }}"
+            echo "step_5_split_protocol_audit=${{ steps.audit_protocols.outcome }}"
+            echo "step_6_extra_facts=${{ steps.extras.outcome }}"
+            echo
+            echo "FAILED OR NOT-FOUND MARKERS IN REPORT:"
+            if grep -E 'Traceback \(most recent call last\)|FileNotFoundError|_NOT_FOUND|NOT_FOUND=|MISSING=|FAILED:' rerun_report_part2.txt; then :; else echo "No matching failure or not-found marker found."; fi
+            echo
+            echo "END OF RERUN REPORT PART 2"
+          } 2>&1 | tee -a rerun_report_part2.txt
+
+      - name: Upload full continuation report and outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rerun-report-part2-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            rerun_report_part2.txt
+            Data/model_evaluation_metrics.json
+            Data/classification_results_summary.csv
+            Data/preprocessed_evaluations.csv
+            Data/training_audit_report.txt
+            Data/synthetic_evaluations.csv
