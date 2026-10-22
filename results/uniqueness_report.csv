@@ -1,0 +1,5 @@
+scope,total_rows,unique_texts,exact_duplicate_text_label_rows_after_first,texts_with_multiple_labels,rows_covered_by_multi_label_texts,pct_unique_clauses
+pooled,13600,10641,2348,611,1994,7.4417
+nigerian,10000,7676,1713,611,1994,6.8481
+synthetic,1600,1304,296,0,0,6.1774
+nigerian_slang,2000,1661,339,0,0,11.6755
